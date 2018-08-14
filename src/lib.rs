@@ -99,9 +99,9 @@ mod prelude {
 
     pub use crate::{CodegenCx, ModuleTup};
 
-    pub fn should_codegen(tcx: TyCtxt) -> bool {
+    pub fn should_codegen(sess: &Session) -> bool {
         ::std::env::var("SHOULD_CODEGEN").is_ok()
-            || tcx.sess.crate_types.get().contains(&CrateType::Executable)
+            || sess.crate_types.get().contains(&CrateType::Executable)
     }
 }
 
@@ -120,6 +120,7 @@ pub struct CodegenCx<'a, 'tcx: 'a> {
 
 pub struct ModuleTup<T> {
     jit: Option<T>,
+    #[allow(dead_code)]
     faerie: Option<T>,
 }
 
@@ -190,8 +191,8 @@ impl CodegenBackend for CraneliftCodegenBackend {
             match *cty {
                 CrateType::Rlib | CrateType::Dylib | CrateType::Executable => {}
                 _ => {
-                    sess.parse_sess.span_diagnostic.warn(&format!(
-                        "LLVM unsupported, so output type {} is not supported",
+                    sess.err(&format!(
+                        "Rustc codegen cranelift doesn't support output type {}",
                         cty
                     ));
                 }
@@ -255,6 +256,14 @@ impl CodegenBackend for CraneliftCodegenBackend {
                 _ => {}
             }
         }
+
+        if !tcx.sess.crate_types.get().contains(&CrateType::Executable)
+            && std::env::var("SHOULD_RUN").is_ok()
+        {
+            tcx.sess
+                .err("Can't JIT run non executable (SHOULD_RUN env var is set)");
+        }
+
         tcx.sess.abort_if_errors();
 
         let link_meta = ::build_link_meta(tcx.crate_hash(LOCAL_CRATE));
@@ -338,7 +347,8 @@ impl CodegenBackend for CraneliftCodegenBackend {
         tcx.sess.warn("Compiled everything");
 
         // TODO: this doesn't work most of the time
-        if tcx.sess.crate_types.get().contains(&CrateType::Executable) {
+        if std::env::var("SHOULD_RUN").is_ok() {
+            tcx.sess.warn("Rustc codegen cranelift will JIT run the executable, because the SHOULD_RUN env var is set");
             let start_wrapper = tcx.lang_items().start_fn().expect("no start lang item");
 
             let (name, sig) =
@@ -361,7 +371,8 @@ impl CodegenBackend for CraneliftCodegenBackend {
             tcx.sess.warn(&format!("main returned {}", res));
 
             jit_module.finish();
-        } else if should_codegen(tcx) {
+            ::std::process::exit(0);
+        } else if should_codegen(tcx.sess) {
             jit_module.finalize_all();
             faerie_module.finalize_all();
 
@@ -402,7 +413,7 @@ impl CodegenBackend for CraneliftCodegenBackend {
         for &crate_type in sess.opts.crate_types.iter() {
             match crate_type {
                 CrateType::Executable => {
-                    sess.warn("Rustc codegen cranelift doesn't produce executables, but is a JIT for them");
+                    
                 },
                 CrateType::Rlib /* | CrateType::Dylib */ => {
                     let output_name = out_filename(
@@ -418,7 +429,14 @@ impl CodegenBackend for CraneliftCodegenBackend {
                             &ar::Header::new(b".rustc.clif_metadata".to_vec(), metadata.len() as u64),
                             ::std::io::Cursor::new(metadata.clone()),
                         ).unwrap();
-                    //artifact.write(file).unwrap();
+                    if should_codegen(sess) {
+                        let obj = artifact.emit().unwrap();
+                        builder
+                            .append(
+                                &ar::Header::new(b"data.o".to_vec(), obj.len() as u64),
+                                ::std::io::Cursor::new(obj),
+                            ).unwrap();
+                    }
                 }
                 _ => sess.fatal(&format!("Unsupported crate type: {:?}", crate_type)),
             }
