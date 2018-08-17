@@ -48,6 +48,11 @@ SHOULD_RUN=1 $RUSTC --crate-type bin example/mini_core_hello_world.rs --cfg jit
 echo "[AOT] mini_core_hello_world"
 build_example_bin mini_core_hello_world example/mini_core_hello_world.rs
 
+echo "[AOT] std_hello_world against llvm sysroot"
+$RUSTC example/std_hello_world.rs --crate-type bin --sysroot $(rustc --print sysroot)
+gcc target/out/std_hello_world $(rustc --print sysroot)/lib/rustlib/*/lib/libstd-*.$dylib_ext -o target/out/std_hello_world_bin
+./target/out/std_hello_world_bin
+
 pushd xargo
 rm -r ~/.xargo/HOST || true
 rm -r target || true
