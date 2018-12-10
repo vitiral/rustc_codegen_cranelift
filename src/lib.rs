@@ -342,7 +342,13 @@ fn codegen_mono_items<'a, 'tcx: 'a>(
 
     for (&mono_item, &(_linkage, _vis)) in mono_items {
         unimpl::try_unimpl(tcx, log, || {
-            base::trans_mono_item(tcx, module, &mut caches, &mut ccx, mono_item);
+            use rustc::mir::mono::{Visibility, Linkage as RLinkage};
+            let linkage = match (_linkage, _vis) {
+                (RLinkage::External, Visibility::Default) => Linkage::Export,
+                (RLinkage::Internal, Visibility::Default) => Linkage::Local,
+                _ => panic!("{:?} = {:?} {:?}", mono_item, _linkage, _vis),
+            };
+            base::trans_mono_item(tcx, module, &mut caches, &mut ccx, mono_item, linkage);
         });
     }
 

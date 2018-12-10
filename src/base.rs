@@ -15,6 +15,7 @@ pub fn trans_mono_item<'a, 'tcx: 'a>(
     caches: &mut Caches<'tcx>,
     ccx: &mut crate::constant::ConstantCx,
     mono_item: MonoItem<'tcx>,
+    linkage: Linkage,
 ) {
     match mono_item {
         MonoItem::Fn(inst) => {
@@ -44,7 +45,7 @@ pub fn trans_mono_item<'a, 'tcx: 'a>(
                 }
             });
 
-            trans_fn(tcx, module, ccx, caches, inst);
+            trans_fn(tcx, module, ccx, caches, inst, linkage);
         }
         MonoItem::Static(def_id) => {
             crate::constant::codegen_static(ccx, def_id);
@@ -61,6 +62,7 @@ fn trans_fn<'a, 'tcx: 'a>(
     constants: &mut crate::constant::ConstantCx,
     caches: &mut Caches<'tcx>,
     instance: Instance<'tcx>,
+    linkage: Linkage,
 ) {
     // Step 1. Get mir
     let mir = tcx.instance_mir(instance.def);
@@ -68,7 +70,7 @@ fn trans_fn<'a, 'tcx: 'a>(
     // Step 2. Declare function
     let (name, sig) = get_function_name_and_sig(tcx, instance);
     let func_id = module
-        .declare_function(&name, Linkage::Export, &sig)
+        .declare_function(&name, linkage, &sig)
         .unwrap();
 
     // Step 3. Make FunctionBuilder

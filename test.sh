@@ -28,8 +28,8 @@ time xargo build
 popd
 
 # TODO linux linker doesn't accept duplicate definitions
-#$RUSTC --sysroot ~/.xargo/HOST example/alloc_example.rs --crate-type bin
-#./target/out/alloc_example
+$RUSTC --sysroot ~/.xargo/HOST example/alloc_example.rs --crate-type bin
+./target/out/alloc_example
 
 $RUSTC --sysroot ~/.xargo/HOST example/mod_bench.rs --crate-type bin
 
