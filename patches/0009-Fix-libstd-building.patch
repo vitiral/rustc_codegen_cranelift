@@ -1,0 +1,64 @@
+From 423da150380ea270852d90dbc278f912bce7cfb4 Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Thu, 15 Nov 2018 11:48:11 +0100
+Subject: [PATCH] Fix libstd building
+
+---
+ src/libstd/sys/unix/thread_local.rs  | 3 +++
+ src/libstd/sys_common/at_exit_imp.rs | 2 +-
+ src/libstd/sys_common/thread.rs      | 3 +++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/src/libstd/sys/unix/thread_local.rs b/src/libstd/sys/unix/thread_local.rs
+index 2487f6b..47506fb 100644
+--- a/src/libstd/sys/unix/thread_local.rs
++++ b/src/libstd/sys/unix/thread_local.rs
+@@ -17,9 +17,12 @@ pub type Key = libc::pthread_key_t;
+ 
+ #[inline]
+ pub unsafe fn create(dtor: Option<unsafe extern fn(*mut u8)>) -> Key {
++    /*
+     let mut key = 0;
+     assert_eq!(libc::pthread_key_create(&mut key, mem::transmute(dtor)), 0);
+     key
++    */
++    unimplemented!();
+ }
+ 
+ #[inline]
+diff --git a/src/libstd/sys_common/at_exit_imp.rs b/src/libstd/sys_common/at_exit_imp.rs
+index 76e5df2..bf52ea1 100644
+--- a/src/libstd/sys_common/at_exit_imp.rs
++++ b/src/libstd/sys_common/at_exit_imp.rs
+@@ -64,7 +64,7 @@ pub fn cleanup() {
+                 let queue: Box<Queue> = Box::from_raw(queue);
+                 for to_run in *queue {
+                     // We are not holding any lock, so reentrancy is fine.
+-                    to_run();
++                    //to_run();
+                 }
+             }
+         }
+diff --git a/src/libstd/sys_common/thread.rs b/src/libstd/sys_common/thread.rs
+index 86a5e2b..0e632bb 100644
+--- a/src/libstd/sys_common/thread.rs
++++ b/src/libstd/sys_common/thread.rs
+@@ -16,12 +16,15 @@ use sys::thread as imp;
+ 
+ #[allow(dead_code)]
+ pub unsafe fn start_thread(main: *mut u8) {
++    /*
+     // Next, set up our stack overflow handler which may get triggered if we run
+     // out of stack.
+     let _handler = stack_overflow::Handler::new();
+ 
+     // Finally, let's run some code.
+     Box::from_raw(main as *mut Box<dyn FnBox()>)()
++    */
++    unimplemented!();
+ }
+ 
+ pub fn min_stack() -> usize {
+-- 
+2.11.0
+
