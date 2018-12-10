@@ -1,0 +1,26 @@
+From 5e2b12813c34a3520b574038a264b4a9eae15bd2 Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Fri, 16 Nov 2018 20:32:49 +0100
+Subject: [PATCH] Fix last compilation errors in libstd
+
+---
+ src/liballoc/boxed.rs               | 3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/liballoc/boxed.rs b/src/liballoc/boxed.rs
+index a41500d..ecd3f54 100644
+--- a/src/liballoc/boxed.rs
++++ b/src/liballoc/boxed.rs
+@@ -674,7 +674,8 @@ impl<'a, A, R> FnOnce<A> for Box<dyn FnBox<A, Output = R> + 'a> {
+     type Output = R;
+ 
+     extern "rust-call" fn call_once(self, args: A) -> R {
+-        self.call_box(args)
++        //self.call_box(args)
++        unimplemented!();
+     }
+ }
+ 
+-- 
+2.11.0
+
