@@ -139,6 +139,9 @@ impl CodegenBackend for CraneliftCodegenBackend {
         if sess.opts.debugging_opts.pgo_gen.is_some() {
             sess.err("pgo is not supported");
         }
+        //unsafe {
+        //    (*(sess as *const Session as *mut Session)).opts.cli_forced_codegen_units = Some(1);
+        //}
     }
 
     fn metadata_loader(&self) -> Box<dyn MetadataLoader + Sync> {
@@ -228,7 +231,7 @@ impl CodegenBackend for CraneliftCodegenBackend {
                 .declare_function("main", Linkage::Import, &sig)
                 .unwrap();
 
-            codegen_mono_items(tcx, &mut jit_module, &mut log);
+            codegen_mono_items(tcx, &mut jit_module, None::<&mut Module<SimpleJITBackend>>, &mut log);
 
             tcx.sess.abort_if_errors();
             println!("Compiled everything");
@@ -247,8 +250,17 @@ impl CodegenBackend for CraneliftCodegenBackend {
         } else {
             let mut faerie_module: Module<FaerieBackend> = Module::new(
                 FaerieBuilder::new(
-                    isa,
+                    isa.clone(),
                     "some_file.o".to_string(),
+                    FaerieTrapCollection::Disabled,
+                    FaerieBuilder::default_libcall_names(),
+                )
+                .unwrap(),
+            );
+            let mut allocator_module: Module<FaerieBackend> = Module::new(
+                FaerieBuilder::new(
+                    isa,
+                    "allocator.o".to_string(),
                     FaerieTrapCollection::Disabled,
                     FaerieBuilder::default_libcall_names(),
                 )
@@ -259,17 +271,25 @@ impl CodegenBackend for CraneliftCodegenBackend {
                 faerie_module.target_config().pointer_type()
             );
 
-            codegen_mono_items(tcx, &mut faerie_module, &mut log);
+            codegen_mono_items(tcx, &mut faerie_module, Some(&mut allocator_module), &mut log);
 
             tcx.sess.abort_if_errors();
 
             let artifact = faerie_module.finish().artifact;
+            allocator_module.finalize_definitions();
+            let allocator_artifact = allocator_module.finish().artifact;
 
             let tmp_file = tcx
                 .output_filenames(LOCAL_CRATE)
-                .temp_path(OutputType::Object, None);
+                .temp_path(OutputType::Object, Some("dummy_name"));
             let obj = artifact.emit().unwrap();
             std::fs::write(&tmp_file, obj).unwrap();
+
+            let allocator_tmp_file = tcx
+                .output_filenames(LOCAL_CRATE)
+                .temp_path(OutputType::Object, None);
+            let allocator_obj = allocator_artifact.emit().unwrap();
+            std::fs::write(&allocator_tmp_file, allocator_obj).unwrap();
 
             return Box::new(CodegenResults {
                 crate_name: tcx.crate_name(LOCAL_CRATE),
@@ -280,7 +300,13 @@ impl CodegenBackend for CraneliftCodegenBackend {
                     bytecode: None,
                     bytecode_compressed: None,
                 }],
-                allocator_module: None,
+                allocator_module: Some(CompiledModule {
+                    name: "allocator_shim".to_string(),
+                    kind: ModuleKind::Allocator,
+                    object: Some(allocator_tmp_file),
+                    bytecode: None,
+                    bytecode_compressed: None,
+                }),
                 metadata_module: CompiledModule {
                     name: "dummy_metadata".to_string(),
                     kind: ModuleKind::Metadata,
@@ -325,6 +351,7 @@ impl CodegenBackend for CraneliftCodegenBackend {
 fn codegen_mono_items<'a, 'tcx: 'a>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     module: &mut Module<impl Backend + 'static>,
+    separate_allocator_module: Option<&mut Module<impl Backend + 'static>>,
     log: &mut Option<File>,
 ) {
     let mut caches = Caches::new();
@@ -346,6 +373,7 @@ fn codegen_mono_items<'a, 'tcx: 'a>(
             let linkage = match (_linkage, _vis) {
                 (RLinkage::External, Visibility::Default) => Linkage::Export,
                 (RLinkage::Internal, Visibility::Default)
+                // FIXME External but still hidden?????
                 | (RLinkage::External, Visibility::Hidden) => Linkage::Local,
                 _ => panic!("{:?} = {:?} {:?}", mono_item, _linkage, _vis),
             };
@@ -366,7 +394,11 @@ fn codegen_mono_items<'a, 'tcx: 'a>(
         });
     if any_dynamic_crate {
     } else if let Some(kind) = *tcx.sess.allocator_kind.get() {
-        allocator::codegen(module, kind);
+        if let Some(separate_allocator_module) = separate_allocator_module {
+            allocator::codegen(separate_allocator_module, kind)
+        } else {
+            allocator::codegen(module, kind);
+        }
     }
 
     ccx.finalize(tcx, module);
