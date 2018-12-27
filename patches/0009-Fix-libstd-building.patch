@@ -1,19 +1,63 @@
-From 423da150380ea270852d90dbc278f912bce7cfb4 Mon Sep 17 00:00:00 2001
+From 39b5362027bdf7743cbd898a87259bd19a9f2022 Mon Sep 17 00:00:00 2001
 From: bjorn3 <bjorn3@users.noreply.github.com>
-Date: Thu, 15 Nov 2018 11:48:11 +0100
-Subject: [PATCH] Fix libstd building
+Date: Thu, 27 Dec 2018 11:10:58 +0100
+Subject: [PATCH 09/10] Fix libstd building
 
 ---
+ src/libstd/sys/unix/net.rs           | 3 +++
+ src/libstd/sys/unix/pipe.rs          | 3 +++
  src/libstd/sys/unix/thread_local.rs  | 3 +++
  src/libstd/sys_common/at_exit_imp.rs | 2 +-
  src/libstd/sys_common/thread.rs      | 3 +++
- 3 files changed, 7 insertions(+), 1 deletion(-)
+ 5 files changed, 13 insertions(+), 1 deletion(-)
 
+diff --git a/src/libstd/sys/unix/net.rs b/src/libstd/sys/unix/net.rs
+index f003e36..25d41c0 100644
+--- a/src/libstd/sys/unix/net.rs
++++ b/src/libstd/sys/unix/net.rs
+@@ -193,6 +193,7 @@ impl Socket {
+         // Linux. This was added in 2.6.28, however, and because we support
+         // 2.6.18 we must detect this support dynamically.
+         if cfg!(target_os = "linux") {
++            /*
+             syscall! {
+                 fn accept4(
+                     fd: c_int,
+@@ -209,6 +210,8 @@ impl Socket {
+                 Err(ref e) if e.raw_os_error() == Some(libc::ENOSYS) => {}
+                 Err(e) => return Err(e),
+             }
++            */
++            unimplemented!();
+         }
+ 
+         let fd = cvt_r(|| unsafe {
+diff --git a/src/libstd/sys/unix/pipe.rs b/src/libstd/sys/unix/pipe.rs
+index 91793a0..faef22f 100644
+--- a/src/libstd/sys/unix/pipe.rs
++++ b/src/libstd/sys/unix/pipe.rs
+@@ -12,6 +12,7 @@ use sys::{cvt, cvt_r};
+ pub struct AnonPipe(FileDesc);
+ 
+ pub fn anon_pipe() -> io::Result<(AnonPipe, AnonPipe)> {
++    /*
+     syscall! { fn pipe2(fds: *mut c_int, flags: c_int) -> c_int }
+     static INVALID: AtomicBool = ATOMIC_BOOL_INIT;
+ 
+@@ -52,6 +53,8 @@ pub fn anon_pipe() -> io::Result<(AnonPipe, AnonPipe)> {
+     fd0.set_cloexec()?;
+     fd1.set_cloexec()?;
+     Ok((AnonPipe(fd0), AnonPipe(fd1)))
++    */
++    unimplemented!();
+ }
+ 
+ impl AnonPipe {
 diff --git a/src/libstd/sys/unix/thread_local.rs b/src/libstd/sys/unix/thread_local.rs
-index 2487f6b..47506fb 100644
+index c171fbc..4f8820b 100644
 --- a/src/libstd/sys/unix/thread_local.rs
 +++ b/src/libstd/sys/unix/thread_local.rs
-@@ -17,9 +17,12 @@ pub type Key = libc::pthread_key_t;
+@@ -7,9 +7,12 @@ pub type Key = libc::pthread_key_t;
  
  #[inline]
  pub unsafe fn create(dtor: Option<unsafe extern fn(*mut u8)>) -> Key {
@@ -27,10 +71,10 @@ index 2487f6b..47506fb 100644
  
  #[inline]
 diff --git a/src/libstd/sys_common/at_exit_imp.rs b/src/libstd/sys_common/at_exit_imp.rs
-index 76e5df2..bf52ea1 100644
+index cd2d176..05932a0 100644
 --- a/src/libstd/sys_common/at_exit_imp.rs
 +++ b/src/libstd/sys_common/at_exit_imp.rs
-@@ -64,7 +64,7 @@ pub fn cleanup() {
+@@ -54,7 +54,7 @@ pub fn cleanup() {
                  let queue: Box<Queue> = Box::from_raw(queue);
                  for to_run in *queue {
                      // We are not holding any lock, so reentrancy is fine.
@@ -40,10 +84,10 @@ index 76e5df2..bf52ea1 100644
              }
          }
 diff --git a/src/libstd/sys_common/thread.rs b/src/libstd/sys_common/thread.rs
-index 86a5e2b..0e632bb 100644
+index fe9ad76..2fe10dd 100644
 --- a/src/libstd/sys_common/thread.rs
 +++ b/src/libstd/sys_common/thread.rs
-@@ -16,12 +16,15 @@ use sys::thread as imp;
+@@ -6,12 +6,15 @@ use sys::thread as imp;
  
  #[allow(dead_code)]
  pub unsafe fn start_thread(main: *mut u8) {
