@@ -42,5 +42,7 @@ fn main() {
         puts(*world as *const str as *const u8);
     }
 
+    let rc = std::rc::Rc::new(||()) as std::rc::Rc<Fn()>;
+
     //0
 }
