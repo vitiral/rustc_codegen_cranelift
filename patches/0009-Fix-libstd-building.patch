@@ -11,23 +11,6 @@ Subject: [PATCH 09/10] Fix libstd building
  src/libstd/sys_common/thread.rs      | 3 +++
  5 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/src/libstd/sys/unix/thread_local.rs b/src/libstd/sys/unix/thread_local.rs
-index c171fbc..4f8820b 100644
---- a/src/libstd/sys/unix/thread_local.rs
-+++ b/src/libstd/sys/unix/thread_local.rs
-@@ -7,9 +7,12 @@ pub type Key = libc::pthread_key_t;
-
- #[inline]
- pub unsafe fn create(dtor: Option<unsafe extern fn(*mut u8)>) -> Key {
-+    /*
-     let mut key = 0;
-     assert_eq!(libc::pthread_key_create(&mut key, mem::transmute(dtor)), 0);
-     key
-+    */
-+    unimplemented!();
- }
-
- #[inline]
 diff --git a/src/libstd/sys_common/at_exit_imp.rs b/src/libstd/sys_common/at_exit_imp.rs
 index cd2d176..05932a0 100644
 --- a/src/libstd/sys_common/at_exit_imp.rs
