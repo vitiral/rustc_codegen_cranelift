@@ -11,54 +11,12 @@ Subject: [PATCH 09/10] Fix libstd building
  src/libstd/sys_common/thread.rs      | 3 +++
  5 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/src/libstd/sys/unix/net.rs b/src/libstd/sys/unix/net.rs
-index f003e36..25d41c0 100644
---- a/src/libstd/sys/unix/net.rs
-+++ b/src/libstd/sys/unix/net.rs
-@@ -193,6 +193,7 @@ impl Socket {
-         // Linux. This was added in 2.6.28, however, and because we support
-         // 2.6.18 we must detect this support dynamically.
-         if cfg!(target_os = "linux") {
-+            /*
-             syscall! {
-                 fn accept4(
-                     fd: c_int,
-@@ -209,6 +210,8 @@ impl Socket {
-                 Err(ref e) if e.raw_os_error() == Some(libc::ENOSYS) => {}
-                 Err(e) => return Err(e),
-             }
-+            */
-+            unimplemented!();
-         }
- 
-         let fd = cvt_r(|| unsafe {
-diff --git a/src/libstd/sys/unix/pipe.rs b/src/libstd/sys/unix/pipe.rs
-index 91793a0..faef22f 100644
---- a/src/libstd/sys/unix/pipe.rs
-+++ b/src/libstd/sys/unix/pipe.rs
-@@ -12,6 +12,7 @@ use sys::{cvt, cvt_r};
- pub struct AnonPipe(FileDesc);
- 
- pub fn anon_pipe() -> io::Result<(AnonPipe, AnonPipe)> {
-+    /*
-     syscall! { fn pipe2(fds: *mut c_int, flags: c_int) -> c_int }
-     static INVALID: AtomicBool = ATOMIC_BOOL_INIT;
- 
-@@ -52,6 +53,8 @@ pub fn anon_pipe() -> io::Result<(AnonPipe, AnonPipe)> {
-     fd0.set_cloexec()?;
-     fd1.set_cloexec()?;
-     Ok((AnonPipe(fd0), AnonPipe(fd1)))
-+    */
-+    unimplemented!();
- }
- 
- impl AnonPipe {
 diff --git a/src/libstd/sys/unix/thread_local.rs b/src/libstd/sys/unix/thread_local.rs
 index c171fbc..4f8820b 100644
 --- a/src/libstd/sys/unix/thread_local.rs
 +++ b/src/libstd/sys/unix/thread_local.rs
 @@ -7,9 +7,12 @@ pub type Key = libc::pthread_key_t;
- 
+
  #[inline]
  pub unsafe fn create(dtor: Option<unsafe extern fn(*mut u8)>) -> Key {
 +    /*
@@ -68,7 +26,7 @@ index c171fbc..4f8820b 100644
 +    */
 +    unimplemented!();
  }
- 
+
  #[inline]
 diff --git a/src/libstd/sys_common/at_exit_imp.rs b/src/libstd/sys_common/at_exit_imp.rs
 index cd2d176..05932a0 100644
@@ -88,21 +46,20 @@ index fe9ad76..2fe10dd 100644
 --- a/src/libstd/sys_common/thread.rs
 +++ b/src/libstd/sys_common/thread.rs
 @@ -6,12 +6,15 @@ use sys::thread as imp;
- 
+
  #[allow(dead_code)]
  pub unsafe fn start_thread(main: *mut u8) {
 +    /*
      // Next, set up our stack overflow handler which may get triggered if we run
      // out of stack.
      let _handler = stack_overflow::Handler::new();
- 
+
      // Finally, let's run some code.
      Box::from_raw(main as *mut Box<dyn FnBox()>)()
 +    */
 +    unimplemented!();
  }
- 
- pub fn min_stack() -> usize {
--- 
-2.11.0
 
+ pub fn min_stack() -> usize {
+--
+2.11.0

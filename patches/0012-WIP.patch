@@ -15,44 +15,11 @@ index 6a0d0b5..a3a30ef 100644
 @@ -27,7 +27,7 @@ fn lang_start_internal(main: &(dyn Fn() -> i32 + Sync + ::panic::RefUnwindSafe),
      use sys_common::thread_info;
      use thread::Thread;
- 
+
 -    sys::init();
 +    //sys::init();
- 
+
      unsafe {
          let main_guard = sys::thread::guard::init();
-diff --git a/src/libstd/sys/unix/fs.rs b/src/libstd/sys/unix/fs.rs
-index dd6c3c2..6dd72c9 100644
---- a/src/libstd/sys/unix/fs.rs
-+++ b/src/libstd/sys/unix/fs.rs
-@@ -455,13 +455,16 @@ impl File {
-     }
- 
-     pub fn open_c(path: &CStr, opts: &OpenOptions) -> io::Result<File> {
--        /*
-+        extern "C" {
-+            fn open(path: *const libc::c_char, oflag: libc::c_int) -> libc::c_int;
-+        }
-+
-         let flags = libc::O_CLOEXEC |
-                     opts.get_access_mode()? |
-                     opts.get_creation_mode()? |
-                     (opts.custom_flags as c_int & !libc::O_ACCMODE);
-         let fd = cvt_r(|| unsafe {
--            open64(path.as_ptr(), flags, opts.mode as c_int)
-+            open(path.as_ptr(), flags)
-         })?;
-         let fd = FileDesc::new(fd);
- 
-@@ -510,8 +513,6 @@ impl File {
- 
-         ensure_cloexec(&fd)?;
-         Ok(File(fd))
--        */
--        unimplemented!();
-     }
- 
-     pub fn file_attr(&self) -> io::Result<FileAttr> {
--- 
+--
 2.17.2 (Apple Git-113)
-
