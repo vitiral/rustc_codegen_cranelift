@@ -44,5 +44,9 @@ fn main() {
 
     let rc = std::rc::Rc::new(||()) as std::rc::Rc<Fn()>;
 
+    ABC.with(|abc| *abc);
+
     //0
 }
+
+thread_local!(static ABC: u8 = 0);
