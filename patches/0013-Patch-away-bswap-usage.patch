@@ -1,0 +1,27 @@
+From 19d9b586ab3f64570cba49bd69e98f8a70ce494e Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Sat, 26 Jan 2019 15:53:23 +0100
+Subject: [PATCH] Patch away bswap usage
+
+---
+ src/libcore/num/mod.rs | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/src/libcore/num/mod.rs b/src/libcore/num/mod.rs
+index b2b3f90..ca42c97 100644
+--- a/src/libcore/num/mod.rs
++++ b/src/libcore/num/mod.rs
+@@ -2376,10 +2376,7 @@ assert_eq!(m, ", $swapped, ");
+             #[cfg_attr(stage0, rustc_const_unstable(feature = "const_int_ops"))]
+             #[inline]
+             pub const fn swap_bytes(self) -> Self {
+-                #[cfg(stage0)]
+-                unsafe { intrinsics::bswap(self as $ActualT) as Self }
+-                #[cfg(not(stage0))]
+-                { intrinsics::bswap(self as $ActualT) as Self }
++                0 // bswap is unsupported by cg_clif
+             }
+         }
+
+--
+2.17.2 (Apple Git-113)
