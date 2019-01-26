@@ -5,31 +5,21 @@ Subject: [PATCH] Workaround for libstd crash
 
 I think this is related to the use of TLS inside those functions
 ---
- src/libstd/rt.rs | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ src/libstd/rt.rs | 2 +-
+ 1 file changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/src/libstd/rt.rs b/src/libstd/rt.rs
 index 5ddb66b..6a0d0b5 100644
 --- a/src/libstd/rt.rs
 +++ b/src/libstd/rt.rs
-@@ -38,7 +38,7 @@ fn lang_start_internal(main: &(dyn Fn() -> i32 + Sync + ::panic::RefUnwindSafe),
-         // but we just do this to name the main thread and to give it correct
-         // info about the stack bounds.
-         let thread = Thread::new(Some("main".to_owned()));
--        thread_info::set(main_guard, thread);
-+        //thread_info::set(main_guard, thread);
- 
-         // Store our args if necessary in a squirreled away location
-         sys::args::init(argc, argv);
 @@ -51,7 +51,7 @@ fn lang_start_internal(main: &(dyn Fn() -> i32 + Sync + ::panic::RefUnwindSafe),
          #[cfg(not(feature = "backtrace"))]
          let exit_code = panic::catch_unwind(move || main());
- 
+
 -        sys_common::cleanup();
 +        //sys_common::cleanup();
          exit_code.unwrap_or(101) as isize
      }
  }
--- 
+--
 2.17.2 (Apple Git-113)
-
