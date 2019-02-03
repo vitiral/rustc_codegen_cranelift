@@ -46,6 +46,8 @@ fn main() {
 
     ABC.with(|abc| *abc);
 
+    ::std::io::stdout();
+
     //0
 }
 
