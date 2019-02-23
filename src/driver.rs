@@ -357,10 +357,10 @@ fn trans_mono_item<'clif, 'tcx, B: Backend + 'static>(
 }
 
 fn time<R>(name: &str, f: impl FnOnce() -> R) -> R {
-    println!("[{}] start", name);
+    //println!("[{}] start", name);
     let before = std::time::Instant::now();
     let res = f();
     let after = std::time::Instant::now();
-    println!("[{}] end time: {:?}", name, after - before);
+    //println!("[{}] end time: {:?}", name, after - before);
     res
 }

@@ -44,61 +44,66 @@ $RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-name arbitr
 echo "[BUILD] sysroot"
 time ./build_sysroot/build_sysroot.sh
 
-echo "[AOT] alloc_example"
-$RUSTC example/alloc_example.rs --crate-type bin
-./target/out/alloc_example
+git clone https://github.com/rust-lang/rust.git --depth=1 || true
+cd rust
+git checkout -- .
+export RUSTFLAGS=
 
-jit std_example example/std_example.rs
+cat > the_patch.patch <<EOF
+From 681aa334c5c183538e77c660e5e2d4d0c79fe669 Mon Sep 17 00:00:00 2001
+From: bjorn3 <bjorn3@users.noreply.github.com>
+Date: Sat, 23 Feb 2019 14:55:44 +0100
+Subject: [PATCH] Make suitable for cg_clif tests
 
-echo "[AOT] dst_field_align"
-$RUSTC example/dst-field-align.rs -Zmir-opt-level=2 --crate-name dst_field_align --crate-type bin
-./target/out/dst_field_align
+---
+ .gitmodules           | 10 ----------
+ 1 files changed, 0 insertions(+), 10 deletions(-)
 
-echo "[AOT] std_example"
-$RUSTC example/std_example.rs --crate-type bin
-./target/out/std_example
+diff --git a/.gitmodules b/.gitmodules
+index b75e312d..aef8bc14 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -25,12 +25,6 @@
+ [submodule "src/tools/miri"]
+ 	path = src/tools/miri
+ 	url = https://github.com/rust-lang/miri.git
+-[submodule "src/doc/rust-by-example"]
+-	path = src/doc/rust-by-example
+-	url = https://github.com/rust-lang/rust-by-example.git
+-[submodule "src/llvm-emscripten"]
+-	path = src/llvm-emscripten
+-	url = https://github.com/rust-lang/llvm.git
+ [submodule "src/stdsimd"]
+ 	path = src/stdsimd
+ 	url = https://github.com/rust-lang-nursery/stdsimd.git
+@@ -40,10 +34,6 @@
+ [submodule "src/doc/edition-guide"]
+ 	path = src/doc/edition-guide
+ 	url = https://github.com/rust-lang-nursery/edition-guide.git
+-[submodule "src/llvm-project"]
+-	path = src/llvm-project
+-	url = https://github.com/rust-lang/llvm-project.git
+-	branch = rustc/8.0-2019-01-16
+ [submodule "src/doc/embedded-book"]
+ 	path = src/doc/embedded-book
+ 	url = https://github.com/rust-embedded/book.git
+--
+2.11.0
 
-echo "[BUILD] mod_bench"
-$RUSTC example/mod_bench.rs --crate-type bin
+EOF
+git apply the_patch.patch
 
-# FIXME linker gives multiple definitions error on Linux
-#echo "[BUILD] sysroot in release mode"
-#./build_sysroot/build_sysroot.sh --release
+rm config.toml || true
 
-pushd simple-raytracer
-echo "[BENCH] ebobby/simple-raytracer"
-cargo clean && ../cargo.sh build
-cp ./target/*/debug/main ./raytracer_cg_clif
+cat > config.toml <<EOF
+[llvm]
+enabled = false
+[build]
+local-rebuild = true
+rustc = "/home/bjorn/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/rustc"
+EOF
 
-hyperfine --runs ${RUN_RUNS:-10} ./raytracer_cg_llvm ./raytracer_cg_clif
-popd
-
-pushd regex
-echo "[TEST] rust-lang/regex example shootout-regex-dna"
-../cargo.sh clean
-# Make sure `[codegen mono items] start` doesn't poison the diff
-../cargo.sh build --example shootout-regex-dna
-cat examples/regexdna-input.txt | ../cargo.sh run --example shootout-regex-dna > res.txt
-diff -u res.txt examples/regexdna-output.txt
-
-echo "[TEST] rust-lang/regex tests"
-../cargo.sh test --tests -- --exclude-should-panic --test-threads 1 -Zunstable-options
-popd
-
-echo
-echo "[BENCH COMPILE] mod_bench"
-
-COMPILE_MOD_BENCH_INLINE="$RUSTC example/mod_bench.rs --crate-type bin -Zmir-opt-level=3 -O --crate-name mod_bench_inline"
-COMPILE_MOD_BENCH_LLVM_0="rustc example/mod_bench.rs --crate-type bin -Copt-level=0 -o target/out/mod_bench_llvm_0 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_1="rustc example/mod_bench.rs --crate-type bin -Copt-level=1 -o target/out/mod_bench_llvm_1 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_2="rustc example/mod_bench.rs --crate-type bin -Copt-level=2 -o target/out/mod_bench_llvm_2 -Cpanic=abort"
-COMPILE_MOD_BENCH_LLVM_3="rustc example/mod_bench.rs --crate-type bin -Copt-level=3 -o target/out/mod_bench_llvm_3 -Cpanic=abort"
-
-# Use 100 runs, because a single compilations doesn't take more than ~150ms, so it isn't very slow
-hyperfine --runs ${COMPILE_RUNS:-100} "$COMPILE_MOD_BENCH_INLINE" "$COMPILE_MOD_BENCH_LLVM_0" "$COMPILE_MOD_BENCH_LLVM_1" "$COMPILE_MOD_BENCH_LLVM_2" "$COMPILE_MOD_BENCH_LLVM_3"
-
-echo
-echo "[BENCH RUN] mod_bench"
-hyperfine --runs ${RUN_RUNS:-10} ./target/out/mod_bench{,_inline} ./target/out/mod_bench_llvm_*
-
-cat target/out/log.txt | sort | uniq -c
+rm -r build/x86_64-unknown-linux-gnu/test || true
+./x.py test --stage 0 src/test/run-pass \
+    --rustc-args "-Zcodegen-backend=/home/bjorn/Documenten/rustc_codegen_cranelift/target/debug/librustc_codegen_cranelift.so --sysroot /home/bjorn/Documenten/rustc_codegen_cranelift/build_sysroot/sysroot -Cpanic=abort" \
+    |& tee log.txt
