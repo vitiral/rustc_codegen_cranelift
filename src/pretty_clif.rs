@@ -238,7 +238,7 @@ pub fn write_clif_file<'tcx>(
             file.write(clif.as_bytes()).unwrap();
         }
         Err(e) => {
-            tcx.sess.warn(&format!("err opening clif file: {:?}", e));
+            //tcx.sess.warn(&format!("err opening clif file: {:?}", e));
         }
     }
 }
