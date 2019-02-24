@@ -27,7 +27,7 @@ fn clif_sig_from_fn_sig<'tcx>(
     };
     let (call_conv, inputs, output): (CallConv, Vec<Ty>, Ty) = match abi {
         Abi::Rust => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
-        Abi::C | Abi::SysV64 => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
+        Abi::C => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
         Abi::RustCall => {
             assert_eq!(sig.inputs().len(), 2);
             let extra_args = match sig.inputs().last().unwrap().sty {
