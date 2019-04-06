@@ -44,13 +44,13 @@ $RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-type bin -C
 echo "[BUILD] sysroot"
 time ./build_sysroot/build_sysroot.sh
 
-$RUSTC example/std_example.rs --crate-type bin --sysroot ./build_sysroot/sysroot
+$RUSTC example/std_example.rs --crate-type bin
 ./target/out/std_example
 
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
-#git checkout -- .
-#git pull
+git checkout -- .
+git pull
 export RUSTFLAGS=
 
 cat > the_patch.patch <<EOF
@@ -134,14 +134,6 @@ index 86cdadade1..857518908e 100644
      match res {
          Ok(true) => {}
          Ok(false) => panic!("Some tests failed"),
-@@ -502,6 +503,7 @@ pub fn run_tests(config: &Config) {
-
- pub fn test_opts(config: &Config) -> test::TestOpts {
-     test::TestOpts {
-+        exclude_should_panic: false,
-         filter: config.filter.clone(),
-         filter_exact: config.filter_exact,
-         run_ignored: if config.run_ignored {
 @@ -510,9 +512,9 @@ pub fn test_opts(config: &Config) -> test::TestOpts {
              test::RunIgnored::No
          },
@@ -177,40 +169,7 @@ index 86cdadade1..857518908e 100644
 
 EOF
 
-cat > warning_patch.patch <<EOF
-From c5a651223f5bafb8e30e8ecad26b6b952e76a086 Mon Sep 17 00:00:00 2001
-From: Aaron Hill <aa1ronham@gmail.com>
-Date: Wed, 3 Apr 2019 22:23:18 -0400
-Subject: [PATCH] Fix bootstrap warning
-
-The latest nightly introduces a new lint, which causes compilation to
-fail with #![deny(warnings)]
-
-Signed-off-by: Aaron Hill <aa1ronham@gmail.com>
----
- src/bootstrap/lib.rs | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/src/bootstrap/lib.rs b/src/bootstrap/lib.rs
-index 47ac04ba..3130cbf1 100644
---- a/src/bootstrap/lib.rs
-+++ b/src/bootstrap/lib.rs
-@@ -1122,7 +1122,7 @@ impl Build {
-     /// \`rust.save-toolstates\` in \`config.toml\`. If unspecified, nothing will be
-     /// done. The file is updated immediately after this function completes.
-     pub fn save_toolstate(&self, tool: &str, state: ToolState) {
--        use std::io::{Seek, SeekFrom};
-+
-
-         if let Some(ref path) = self.config.save_toolstates {
-             let mut file = t!(fs::OpenOptions::new()
---
-2.21.0
-
-EOF
-
-#git apply the_patch.patch
-#git apply warning_patch.patch
+git apply the_patch.patch
 
 rm config.toml || true
 
