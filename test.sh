@@ -53,71 +53,8 @@ git checkout -- .
 #git pull
 export RUSTFLAGS=
 
-cat > the_patch.patch <<EOF
-From 681aa334c5c183538e77c660e5e2d4d0c79fe669 Mon Sep 17 00:00:00 2001
-From: bjorn3 <bjorn3@users.noreply.github.com>
-Date: Sat, 23 Feb 2019 14:55:44 +0100
-Subject: [PATCH] Make suitable for cg_clif tests
+git apply ../rust_lang.patch
 
----
- .gitmodules           | 10 ----------
- 1 files changed, 0 insertions(+), 10 deletions(-)
-
-diff --git a/.gitmodules b/.gitmodules
-index b75e312d..aef8bc14 100644
---- a/.gitmodules
-+++ b/.gitmodules
-@@ -25,12 +25,6 @@
- [submodule "src/tools/miri"]
- 	path = src/tools/miri
- 	url = https://github.com/rust-lang/miri.git
--[submodule "src/doc/rust-by-example"]
--	path = src/doc/rust-by-example
--	url = https://github.com/rust-lang/rust-by-example.git
--[submodule "src/llvm-emscripten"]
--	path = src/llvm-emscripten
--	url = https://github.com/rust-lang/llvm.git
- [submodule "src/stdsimd"]
- 	path = src/stdsimd
- 	url = https://github.com/rust-lang-nursery/stdsimd.git
-@@ -40,10 +34,6 @@
- [submodule "src/doc/edition-guide"]
- 	path = src/doc/edition-guide
- 	url = https://github.com/rust-lang-nursery/edition-guide.git
--[submodule "src/llvm-project"]
--	path = src/llvm-project
--	url = https://github.com/rust-lang/llvm-project.git
--	branch = rustc/8.0-2019-03-18
- [submodule "src/doc/embedded-book"]
- 	path = src/doc/embedded-book
- 	url = https://github.com/rust-embedded/book.git
-diff --git a/src/tools/compiletest/src/runtest.rs b/src/tools/compiletest/src/runtest.rs
-index 3e3499edf6..341acc3e9b 100644
---- a/src/tools/compiletest/src/runtest.rs
-+++ b/src/tools/compiletest/src/runtest.rs
-@@ -1608,6 +1608,7 @@ impl<'test> TestCx<'test> {
-                 || (self.config.target.contains("musl") && !aux_props.force_host)
-                 || self.config.target.contains("wasm32")
-                 || self.config.target.contains("nvptx")
-+                || true
-             {
-                 // We primarily compile all auxiliary libraries as dynamic libraries
-                 // to avoid code size bloat and large binaries as much as possible
-@@ -1827,7 +1828,7 @@ impl<'test> TestCx<'test> {
-             if self.config.target == "wasm32-unknown-unknown" {
-                 // rustc.arg("-g"); // get any backtrace at all on errors
-             } else if !self.props.no_prefer_dynamic {
--                rustc.args(&["-C", "prefer-dynamic"]);
-+                // rustc.args(&["-C", "prefer-dynamic"]);
-             }
-         }
-
---
-2.11.0
-
-EOF
-
-git apply the_patch.patch
 
 rm config.toml || true
 
