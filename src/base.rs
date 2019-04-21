@@ -80,6 +80,7 @@ pub fn trans_fn<'a, 'clif, 'tcx: 'a, B: Backend + 'static>(
 
             // Define function
             cx.caches.context.func = func;
+            if std::env::var("PREOPT").is_ok() { cranelift_preopt::optimize(&mut cx.caches.context, cx.module.isa()).unwrap(); }
             cx.module
                 .define_function(func_id, &mut cx.caches.context)
                 .unwrap();

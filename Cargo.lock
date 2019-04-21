@@ -209,6 +209,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cranelift-preopt"
+version = "0.30.0"
+source = "git+https://github.com/CraneStation/cranelift.git#f3f7cadd0157d06089c9b5864d513a61856d0f4d"
+dependencies = [
+ "cranelift-codegen 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
+ "cranelift-entity 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
+]
+
+[[package]]
 name = "cranelift-simplejit"
 version = "0.30.0"
 source = "git+https://github.com/CraneStation/cranelift.git#f3f7cadd0157d06089c9b5864d513a61856d0f4d"
@@ -685,6 +694,7 @@ dependencies = [
  "cranelift 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
  "cranelift-faerie 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
  "cranelift-module 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
+ "cranelift-preopt 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
  "cranelift-simplejit 0.30.0 (git+https://github.com/CraneStation/cranelift.git)",
  "faerie 0.10.0 (git+https://github.com/m4b/faerie.git)",
  "gimli 0.18.0 (git+https://github.com/gimli-rs/gimli.git)",
@@ -969,6 +979,7 @@ dependencies = [
 "checksum cranelift-frontend 0.30.0 (git+https://github.com/CraneStation/cranelift.git)" = "<none>"
 "checksum cranelift-module 0.30.0 (git+https://github.com/CraneStation/cranelift.git)" = "<none>"
 "checksum cranelift-native 0.30.0 (git+https://github.com/CraneStation/cranelift.git)" = "<none>"
+"checksum cranelift-preopt 0.30.0 (git+https://github.com/CraneStation/cranelift.git)" = "<none>"
 "checksum cranelift-simplejit 0.30.0 (git+https://github.com/CraneStation/cranelift.git)" = "<none>"
 "checksum crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d663548de7f5cca343f1e0a48d14dcfb0e9eb4e079ec58883b7251539fa10aeb"
 "checksum crc32fast 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ba125de2af0df55319f41944744ad91c71113bf74a4646efff39afe1f6842db1"
