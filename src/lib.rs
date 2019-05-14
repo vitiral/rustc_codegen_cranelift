@@ -79,6 +79,7 @@ mod prelude {
 
     pub use cranelift::codegen::ir::{
         condcodes::IntCC, function::Function, ExternalName, FuncRef, Inst, SourceLoc, StackSlot,
+        ValueLabel,
     };
     pub use cranelift::codegen::isa::CallConv;
     pub use cranelift::codegen::Context;

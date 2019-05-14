@@ -98,6 +98,7 @@ pub fn trans_fn<'a, 'clif, 'tcx: 'a, B: Backend + 'static>(
 
     // Make FunctionBuilder
     let mut func = Function::with_name_signature(ExternalName::user(0, 0), sig);
+    func.dfg.collect_debug_info(); // Enable value label tracking
     let mut func_ctx = FunctionBuilderContext::new();
     let mut bcx = FunctionBuilder::new(&mut func, &mut func_ctx);
 

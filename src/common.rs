@@ -8,6 +8,10 @@ pub fn mir_var(loc: Local) -> Variable {
     Variable::with_u32(loc.index() as u32)
 }
 
+pub fn mir_val_lbl(loc: Local) -> ValueLabel {
+    ValueLabel::from_u32(loc.index() as u32)
+}
+
 pub fn pointer_ty(tcx: TyCtxt) -> types::Type {
     match tcx.data_layout.pointer_size.bits() {
         16 => types::I16,
@@ -277,7 +281,11 @@ impl<'a, 'tcx: 'a> CPlace<'tcx> {
 
     pub fn to_cvalue(self, fx: &mut FunctionCx<'a, 'tcx, impl Backend>) -> CValue<'tcx> {
         match self {
-            CPlace::Var(var, layout) => CValue::ByVal(fx.bcx.use_var(mir_var(var)), layout),
+            CPlace::Var(var, layout) => {
+                let val = fx.bcx.use_var(mir_var(var));
+                fx.bcx.set_val_label(val, mir_val_lbl(var));
+                CValue::ByVal(val, layout)
+            }
             CPlace::Addr(addr, extra, layout) => {
                 assert!(extra.is_none(), "unsized values are not yet supported");
                 CValue::ByRef(addr, layout)

@@ -244,29 +244,41 @@ impl<'a, 'tcx: 'a, B: Backend + 'a> FunctionCx<'a, 'tcx, B> {
 }
 
 #[cfg(debug_assertions)]
-fn add_arg_comment<'a, 'tcx: 'a>(
+fn add_local_comment<'a, 'tcx: 'a>(
     fx: &mut FunctionCx<'a, 'tcx, impl Backend>,
     msg: &str,
     local: mir::Local,
     local_field: Option<usize>,
     param: Option<Value>,
-    pass_mode: PassMode,
+    pass_mode: Option<PassMode>,
     ssa: crate::analyze::Flags,
-    ty: Ty<'tcx>,
+    layout: TyLayout<'tcx>,
 ) {
     let local_field = if let Some(local_field) = local_field {
         Cow::Owned(format!(".{}", local_field))
     } else {
         Cow::Borrowed("")
     };
+
     let param = if let Some(param) = param {
         Cow::Owned(format!("= {:?}", param))
     } else {
         Cow::Borrowed("-")
     };
-    let pass_mode = format!("{:?}", pass_mode);
+
+    let pass_mode = pass_mode.map(|m| format!("{:?}", m)).unwrap_or_else(String::new);
+
+    let TyLayout { ty, details } = layout;
+    let ty::layout::LayoutDetails {
+        size,
+        align,
+        abi: _,
+        variants: _,
+        fields: _,
+    } = details;
+
     fx.add_global_comment(format!(
-        "{msg:5} {local:>3}{local_field:<5} {param:10} {pass_mode:20} {ssa:10} {ty:?}",
+        "{msg:5} {local:>3}{local_field:<5} {param:10} {pass_mode:20} {ssa:10} {ty:?} size={size} align={abi},{pref}",
         msg = msg,
         local = format!("{:?}", local),
         local_field = local_field,
@@ -274,6 +286,9 @@ fn add_arg_comment<'a, 'tcx: 'a>(
         pass_mode = pass_mode,
         ssa = format!("{:?}", ssa),
         ty = ty,
+        size = size.bytes(),
+        abi = align.abi.bytes(),
+        pref = align.pref.bytes(),
     ));
 }
 
@@ -319,14 +334,16 @@ fn local_place<'a, 'tcx: 'a>(
                         align.pref.bytes(),
                     ),
                 ),
-                CPlace::NoPlace(_) => fx.add_global_comment(format!(
-                    "zst    {:?}: {:?} size={} align={}, {}",
+                CPlace::NoPlace(_) => add_local_comment(
+                    fx,
+                    "zst",
                     local,
-                    ty,
-                    size.bytes(),
-                    align.abi.bytes(),
-                    align.pref.bytes(),
-                )),
+                    None,
+                    None,
+                    None,
+                    crate::analyze::Flags::default(),
+                    layout,
+                ),
                 _ => unreachable!(),
             }
         }
@@ -359,15 +376,15 @@ fn cvalue_for_param<'a, 'tcx: 'a>(
     let ebb_param = fx.bcx.append_ebb_param(start_ebb, clif_type);
 
     #[cfg(debug_assertions)]
-    add_arg_comment(
+    add_local_comment(
         fx,
         "arg",
         local,
         local_field,
         Some(ebb_param),
-        pass_mode,
+        Some(pass_mode),
         ssa_flags,
-        arg_ty,
+        layout,
     );
 
     match pass_mode {
@@ -397,15 +414,15 @@ pub fn codegen_fn_prelude<'a, 'tcx: 'a>(
     #[cfg(debug_assertions)]
     {
         add_local_header_comment(fx);
-        add_arg_comment(
+        add_local_comment(
             fx,
             "ret",
             RETURN_PLACE,
             None,
             ret_param,
-            output_pass_mode,
+            Some(output_pass_mode),
             ssa_analyzed[&RETURN_PLACE],
-            ret_layout.ty,
+            ret_layout,
         );
     }
 
