@@ -20,41 +20,43 @@ fn codegen_field<'a, 'tcx: 'a>(
 
 /// A read-only value
 #[derive(Debug, Copy, Clone)]
-pub struct CValue<'tcx>(CValueInner, TyLayout<'tcx>);
-
-#[derive(Debug, Copy, Clone)]
-enum CValueInner {
-    ByRef(Value),
-    ByVal(Value),
-    ByValPair(Value, Value),
-}
+pub struct CValue<'tcx>(OperandRef<'tcx, Value>);
 
 impl<'tcx> CValue<'tcx> {
-    pub fn by_ref(value: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
-        CValue(CValueInner::ByRef(value), layout)
+    pub fn by_ref(addr: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
+        CValue(OperandRef {
+            val: OperandValue::Ref(addr, None, Align::from_bytes(1).unwrap()),
+            layout,
+        })
     }
 
-    pub fn by_val(value: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
-        CValue(CValueInner::ByVal(value), layout)
+    pub fn by_val(val: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
+        CValue(OperandRef {
+            val: OperandValue::Immediate(val),
+            layout,
+        })
     }
 
-    pub fn by_val_pair(value: Value, extra: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
-        CValue(CValueInner::ByValPair(value, extra), layout)
+    pub fn by_val_pair(val1: Value, val2: Value, layout: TyLayout<'tcx>) -> CValue<'tcx> {
+        CValue(OperandRef {
+            val: OperandValue::Pair(val1, val2),
+            layout,
+        })
     }
 
     pub fn layout(&self) -> TyLayout<'tcx> {
-        self.1
+        self.0.layout
     }
 
     pub fn force_stack<'a>(self, fx: &mut FunctionCx<'a, 'tcx, impl Backend>) -> Value
     where
         'tcx: 'a,
     {
-        let layout = self.1;
-        match self.0 {
-            CValueInner::ByRef(value) => value,
-            CValueInner::ByVal(_) | CValueInner::ByValPair(_, _) => {
-                let cplace = CPlace::new_stack_slot(fx, layout.ty);
+        match self.0.val {
+            OperandValue::Ref(addr, None, _) => addr,
+            OperandValue::Ref(_, Some(_), _) => unimplemented!("unsized locals"),
+            OperandValue::Immediate(_) | OperandValue::Pair(_, _) => {
+                let cplace = CPlace::new_stack_slot(fx, self.0.layout.ty);
                 cplace.write_cvalue(fx, self);
                 cplace.to_addr(fx)
             }
@@ -66,18 +68,18 @@ impl<'tcx> CValue<'tcx> {
     where
         'tcx: 'a,
     {
-        let layout = self.1;
-        match self.0 {
-            CValueInner::ByRef(addr) => {
-                let scalar = match layout.abi {
+        match self.0.val {
+            OperandValue::Ref(addr, None, _) => {
+                let scalar = match self.0.layout.abi {
                     layout::Abi::Scalar(ref scalar) => scalar.clone(),
                     _ => unreachable!(),
                 };
                 let clif_ty = scalar_to_clif_type(fx.tcx, scalar);
                 fx.bcx.ins().load(clif_ty, MemFlags::new(), addr, 0)
             }
-            CValueInner::ByVal(value) => value,
-            CValueInner::ByValPair(_, _) => bug!("Please use load_scalar_pair for ByValPair"),
+            OperandValue::Ref(_, Some(_), _) => unimplemented!("unsized locals"),
+            OperandValue::Immediate(value) => value,
+            OperandValue::Pair(_, _) => bug!("Please use load_scalar_pair for ByValPair"),
         }
     }
 
@@ -86,10 +88,9 @@ impl<'tcx> CValue<'tcx> {
     where
         'tcx: 'a,
     {
-        let layout = self.1;
-        match self.0 {
-            CValueInner::ByRef(addr) => {
-                let (a, b) = match &layout.abi {
+        match self.0.val {
+            OperandValue::Ref(addr, None, _) => {
+                let (a, b) = match &self.0.layout.abi {
                     layout::Abi::ScalarPair(a, b) => (a.clone(), b.clone()),
                     _ => unreachable!(),
                 };
@@ -104,8 +105,9 @@ impl<'tcx> CValue<'tcx> {
                 );
                 (val1, val2)
             }
-            CValueInner::ByVal(_) => bug!("Please use load_scalar for ByVal"),
-            CValueInner::ByValPair(val1, val2) => (val1, val2),
+            OperandValue::Ref(_, Some(_), _) => unimplemented!("unsized locals"),
+            OperandValue::Immediate(_) => bug!("Please use load_scalar for ByVal"),
+            OperandValue::Pair(val1, val2) => (val1, val2),
         }
     }
 
@@ -117,13 +119,12 @@ impl<'tcx> CValue<'tcx> {
     where
         'tcx: 'a,
     {
-        let layout = self.1;
-        let base = match self.0 {
-            CValueInner::ByRef(addr) => addr,
+        let base = match self.0.val {
+            OperandValue::Ref(addr, None, _) => addr,
             _ => bug!("place_field for {:?}", self),
         };
 
-        let (field_ptr, field_layout) = codegen_field(fx, base, layout, field);
+        let (field_ptr, field_layout) = codegen_field(fx, base, self.0.layout, field);
         CValue::by_ref(field_ptr, field_layout)
     }
 
@@ -145,7 +146,10 @@ impl<'tcx> CValue<'tcx> {
     }
 
     pub fn unchecked_cast_to(self, layout: TyLayout<'tcx>) -> Self {
-        CValue(self.0, layout)
+        CValue(OperandRef {
+            val: self.0.val,
+            layout,
+        })
     }
 }
 
@@ -334,11 +338,11 @@ impl<'a, 'tcx: 'a> CPlace<'tcx> {
             CPlace::Addr(_, _, _) => bug!("Can't write value to unsized place {:?}", self),
         };
 
-        match from.0 {
-            CValueInner::ByVal(val) => {
+        match from.0.val {
+            OperandValue::Immediate(val) => {
                 fx.bcx.ins().store(MemFlags::new(), val, addr, 0);
             }
-            CValueInner::ByValPair(value, extra) => {
+            OperandValue::Pair(value, extra) => {
                 match dst_layout.abi {
                     Abi::ScalarPair(ref a, _) => {
                         fx.bcx.ins().store(MemFlags::new(), value, addr, 0);
@@ -355,8 +359,8 @@ impl<'a, 'tcx: 'a> CPlace<'tcx> {
                     ),
                 }
             }
-            CValueInner::ByRef(from_addr) => {
-                let src_layout = from.1;
+            OperandValue::Ref(from_addr, None, _) => {
+                let src_layout = from.0.layout;
                 let size = dst_layout.size.bytes();
                 let src_align = src_layout.align.abi.bytes() as u8;
                 let dst_align = dst_layout.align.abi.bytes() as u8;
@@ -369,6 +373,7 @@ impl<'a, 'tcx: 'a> CPlace<'tcx> {
                     src_align,
                 );
             }
+            OperandValue::Ref(_, Some(_), _) => unimplemented!("unsized locals"),
         }
     }
 
