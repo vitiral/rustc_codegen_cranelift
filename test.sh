@@ -49,11 +49,11 @@ $RUSTC example/std_example.rs --crate-type bin
 
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
-git checkout -- .
+#git checkout -- .
 #git pull
 export RUSTFLAGS=
 
-git apply ../rust_lang.patch
+#git apply ../rust_lang.patch
 
 
 rm config.toml || true
@@ -63,15 +63,15 @@ cat > config.toml <<EOF
 codegen-backends = []
 [build]
 local-rebuild = true
-rustc = "$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/rustc"
+rustc = "$HOME/.rustup/toolchains/nightly-x86_64-apple-darwin/bin/rustc"
 EOF
 
 rm -r src/test/run-pass/{asm-*,abi-*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd/} || true
-for test in src/test/run-pass/*.rs src/test/run-pass/**/*.rs; do
-    if grep "ignore-emscripten" $test 2>&1 >/dev/null; then
-        rm $test
-    fi
-done
+#for test in src/test/run-pass/*.rs src/test/run-pass/**/*.rs; do
+#    if grep "ignore-emscripten" $test 2>&1 >/dev/null; then
+#        rm $test
+#    fi
+#done
 
 echo "[TEST] run-pass"
 
