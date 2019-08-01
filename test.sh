@@ -76,7 +76,4 @@ EOF
 RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
 echo "[TEST] run-pass"
-./x.py test --stage 0 src/test/ui/ --pass run --rustc-args "$RUSTC_ARGS" 2>&1 | tee log.txt
-
-echo "[TEST] compile-pass"
-./x.py test --stage 0 src/test/ui/ --pass compile --rustc-args "$RUSTC_ARGS" 2>&1 | tee -a log.txt
+./x.py test --stage 0 src/test/ui/ --rustc-args "$RUSTC_ARGS" 2>&1 | tee log.txt
