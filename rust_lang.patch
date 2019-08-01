@@ -56,5 +56,18 @@ index 3e3499edf6..341acc3e9b 100644
              }
          }
 
+diff --git a/src/bootstrap/builder.rs b/src/bootstrap/builder.rs
+index 5a75497173..09a559ce7e 100644
+--- a/src/bootstrap/builder.rs
++++ b/src/bootstrap/builder.rs
+@@ -145,7 +145,7 @@ impl StepDescription {
+             only_hosts: S::ONLY_HOSTS,
+             should_run: S::should_run,
+             make_run: S::make_run,
+-            name: unsafe { ::std::intrinsics::type_name::<S>() },
++            name: ::std::intrinsics::type_name::<S>(),
+         }
+     }
+ 
 --
 2.11.0
