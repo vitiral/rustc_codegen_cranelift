@@ -9,7 +9,7 @@
 fn main() {
     let data = std::fs::read_to_string("./rust/log.txt").unwrap();
     let split_tests_regex = regex::RegexBuilder::new(
-        r"^----\s\[run-pass\]\s.*\sstdout\s----\n"
+        r"^----\s\[ui\]\s.*\sstdout\s----\n"
     )
         .multi_line(true)
         .ignore_whitespace(true)
@@ -17,7 +17,7 @@ fn main() {
         .unwrap();
 
     let filter_test_regex = regex::RegexBuilder::new(
-        r"^----\s\[run-pass\]\s(?P<test_name>.*)\sstdout\s----\n\n
+        r"^----\s\[ui\]\s(?P<test_name>.*)\sstdout\s----\n\n
         (?P<err>error[\s:].*)\n
         status:\s(?P<status>.*)\n
         command:\s(?P<cmd>.*)\n
