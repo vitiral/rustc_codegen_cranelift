@@ -232,8 +232,9 @@ fn data_id_for_static(
     if linkage == Linkage::Preemptible {
         if let ty::RawPtr(_) = ty.sty {
         } else {
-            tcx.sess.span_fatal(
-                tcx.def_span(def_id),
+            crate::panic_debug::expected_fatal_error(
+                tcx.sess,
+                Some(tcx.def_span(def_id)),
                 "must have type `*const T` or `*mut T` due to `#[linkage]` attribute",
             )
         }

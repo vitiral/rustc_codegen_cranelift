@@ -289,7 +289,7 @@ impl<'tcx, B: Backend> LayoutOf for FunctionCx<'_, 'tcx, B> {
             .layout_of(ParamEnv::reveal_all().and(&ty))
             .unwrap_or_else(|e| {
                 if let layout::LayoutError::SizeOverflow(_) = e {
-                    self.tcx.sess.fatal(&e.to_string())
+                    crate::panic_debug::expected_fatal_error(self.tcx.sess, None, &e.to_string())
                 } else {
                     bug!("failed to get layout for `{}`: {}", ty, e)
                 }

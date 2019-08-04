@@ -352,9 +352,7 @@ fn trans_mono_item<'clif, 'tcx, B: Backend + 'static>(
         MonoItem::Static(def_id) => {
             crate::constant::codegen_static(&mut cx.constants_cx, def_id);
         }
-        MonoItem::GlobalAsm(node_id) => tcx
-            .sess
-            .fatal(&format!("Unimplemented global asm mono item {:?}", node_id)),
+        MonoItem::GlobalAsm(node_id) => unimpl!("Unimplemented global asm mono item {:?}", node_id),
     }
 }
 

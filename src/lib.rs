@@ -46,6 +46,7 @@ mod llvm_intrinsics;
 mod main_shim;
 mod metadata;
 mod num;
+mod panic_debug;
 mod pretty_clif;
 mod target_features_whitelist;
 mod trap;
@@ -100,19 +101,11 @@ mod prelude {
     pub use crate::cast::*;
     pub use crate::common::*;
     pub use crate::debuginfo::{DebugContext, FunctionDebugContext};
+    pub use crate::panic_debug::PrintOnPanic;
     pub use crate::trap::*;
     pub use crate::unimpl::{unimpl, with_unimpl_span};
     pub use crate::value_and_place::{CPlace, CPlaceInner, CValue};
     pub use crate::{Caches, CodegenCx};
-
-    pub struct PrintOnPanic<F: Fn() -> String>(pub F);
-    impl<F: Fn() -> String> Drop for PrintOnPanic<F> {
-        fn drop(&mut self) {
-            if ::std::thread::panicking() {
-                println!("{}", (self.0)());
-            }
-        }
-    }
 }
 
 pub struct Caches<'tcx> {
