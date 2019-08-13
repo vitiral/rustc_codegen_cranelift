@@ -81,8 +81,11 @@ EOF
 #rm src/test/ui/huge-{array,array-simple-64,enum,struct}.rs || true # cg_clif doesn't provide a span for type is too big for arch
 #rm src/test/ui/issues/issue-15919-64.rs || true # ^
 #rm src/test/ui/issues/issue-23458.rs || true # Inline asm
-#rm src.test/ui/lint/lint-ctypes-enum.rs || true # NonZeroU128 patched away
+rm src/test/ui/lint/lint-ctypes-enum.rs || true # NonZeroU128 patched away
 #rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
+rm src/test/ui/linkage-attr/linkage3.rs || true # Different error
+rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
+rm src/test/ui/suggestions/issue-61963.rs || true # ^
 
 RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
