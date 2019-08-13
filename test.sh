@@ -67,11 +67,22 @@ rustc = "$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/rustc"
 EOF
 
 #rm -r src/test/ui/{asm-*,abi-*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,variadic*,test*} || true
+#rm src/test/ui/*lto*.rs || true
 #for test in src/test/ui/*.rs src/test/ui/**/*.rs; do
 #    if grep "ignore-emscripten" $test 2>&1 >/dev/null; then
 #        rm $test
 #    fi
 #done
+#rm src/test/ui/confuse-field-and-method/issue-2392.rs || true # Borrowck error difference
+#rm src/test/ui/span/borrowck-call-is-borrow-issue-12224.rs || true # ^
+#rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
+#rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
+#rm src/test/ui/type_length_limit.rs || true
+#rm src/test/ui/huge-{array,array-simple-64,enum,struct}.rs || true # cg_clif doesn't provide a span for type is too big for arch
+#rm src/test/ui/issues/issue-15919-64.rs || true # ^
+#rm src/test/ui/issues/issue-23458.rs || true # Inline asm
+#rm src.test/ui/lint/lint-ctypes-enum.rs || true # NonZeroU128 patched away
+#rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
 
 RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
