@@ -41,8 +41,8 @@ echo "[AOT] arbitrary_self_types_pointers_and_wrappers"
 $RUSTC example/arbitrary_self_types_pointers_and_wrappers.rs --crate-name arbitrary_self_types_pointers_and_wrappers --crate-type bin
 ./target/out/arbitrary_self_types_pointers_and_wrappers
 
-echo "[BUILD] sysroot"
-time ./build_sysroot/build_sysroot.sh
+#echo "[BUILD] sysroot"
+#time ./build_sysroot/build_sysroot.sh
 
 echo "[AOT] alloc_example"
 $RUSTC example/alloc_example.rs --crate-type bin
