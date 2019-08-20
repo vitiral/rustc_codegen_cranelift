@@ -66,7 +66,7 @@ local-rebuild = true
 rustc = "$HOME/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin/rustc"
 EOF
 
-#rm -r src/test/ui/{asm-*,abi-*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,variadic*,test*} || true
+rm -r src/test/ui/{asm-*,abi*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,variadic*,test*} || true
 #rm src/test/ui/*lto*.rs || true
 #for test in src/test/ui/*.rs src/test/ui/**/*.rs; do
 #    if grep "ignore-emscripten" $test 2>&1 >/dev/null; then
