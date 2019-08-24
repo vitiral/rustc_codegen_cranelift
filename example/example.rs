@@ -202,3 +202,16 @@ fn get_sized_field_ref_from_unsized_type(u: &Unsized) -> &u8 {
 fn get_unsized_field_ref_from_unsized_type(u: &Unsized) -> &str {
     &u.1
 }
+
+#[repr(C)]
+pub struct Sel {
+    ptr: *const (),
+}
+
+extern {
+    pub fn sel_registerName(name: *const i8) -> Sel;
+}
+
+pub unsafe fn call_register_name(res: &mut Sel) {
+    *res = sel_registerName(0 as *const _)
+}
