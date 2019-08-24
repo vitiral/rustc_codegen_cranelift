@@ -207,12 +207,15 @@ fn clif_sig_from_fn_sig<'tcx>(tcx: TyCtxt<'tcx>, sig: FnSig<'tcx>, is_vtable_fn:
         ),
         PassMode::ByRef => {
             (
-                Some(pointer_ty(tcx)) // First param is place to put return val
+                // Section 3.2.3 subsection "Returning of Values" of the SysV abi
+                // First param contains address to put return val
+                Some(pointer_ty(tcx))
                     .into_iter()
                     .chain(inputs)
                     .map(AbiParam::new)
                     .collect(),
-                vec![],
+                // First return value contains the passed return address
+                vec![AbiParam::new(pointer_ty(tcx))],
             )
         }
     };
@@ -878,18 +881,21 @@ pub fn codegen_drop<'tcx>(
 }
 
 pub fn codegen_return(fx: &mut FunctionCx<impl Backend>) {
+    let ret_place = fx.get_local_place(RETURN_PLACE);
     match get_pass_mode(fx.tcx, fx.return_layout()) {
-        PassMode::NoPass | PassMode::ByRef => {
+        PassMode::NoPass => {
             fx.bcx.ins().return_(&[]);
         }
+        PassMode::ByRef => {
+            let ret_place_addr = ret_place.to_addr(fx);
+            fx.bcx.ins().return_(&[ret_place_addr]);
+        }
         PassMode::ByVal(_) => {
-            let place = fx.get_local_place(RETURN_PLACE);
-            let ret_val = place.to_cvalue(fx).load_scalar(fx);
+            let ret_val = ret_place.to_cvalue(fx).load_scalar(fx);
             fx.bcx.ins().return_(&[ret_val]);
         }
         PassMode::ByValPair(_, _) => {
-            let place = fx.get_local_place(RETURN_PLACE);
-            let (ret_val_a, ret_val_b) = place.to_cvalue(fx).load_scalar_pair(fx);
+            let (ret_val_a, ret_val_b) = ret_place.to_cvalue(fx).load_scalar_pair(fx);
             fx.bcx.ins().return_(&[ret_val_a, ret_val_b]);
         }
     }
