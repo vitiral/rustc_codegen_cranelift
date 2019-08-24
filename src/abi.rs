@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use rustc::ty::layout::{FloatTy, Integer, Primitive, Scalar};
+use rustc::ty::layout::{self, FloatTy, FnTypeExt, Integer, Primitive, Scalar};
+use rustc_target::abi::call::{FnType, PassMode as TargetPassMode, IgnoreMode};
+use rustc_target::abi::{Variants, VariantIdx};
 use rustc_target::spec::abi::Abi;
 
 use crate::prelude::*;
@@ -149,6 +151,54 @@ fn adjust_arg_for_abi<'tcx>(
 }
 
 fn clif_sig_from_fn_sig<'tcx>(tcx: TyCtxt<'tcx>, sig: FnSig<'tcx>, is_vtable_fn: bool) -> Signature {
+    let extra_args = &[]; // should be empty for codegen of callee
+
+    struct Context<'tcx>(TyCtxt<'tcx>);
+
+    impl<'tcx> layout::HasParamEnv<'tcx> for Context<'tcx> {
+        fn param_env(&self) -> ParamEnv<'tcx> {
+            ParamEnv::reveal_all()
+        }
+    }
+
+    impl<'tcx> layout::HasTyCtxt<'tcx> for Context<'tcx> {
+        fn tcx(&self) -> TyCtxt<'tcx> {
+            self.0
+        }
+    }
+
+    impl<'tcx> layout::HasDataLayout for Context<'tcx> {
+        fn data_layout(&self) -> &rustc_target::abi::TargetDataLayout {
+            &self.0.data_layout
+        }
+    }
+
+    impl<'tcx> rustc_target::spec::HasTargetSpec for Context<'tcx> {
+        fn target_spec(&self) -> &rustc_target::spec::Target {
+            &self.0.sess.target.target
+        }
+    }
+
+    impl<'tcx> LayoutOf for Context<'tcx> {
+        type Ty = Ty<'tcx>;
+        type TyLayout = TyLayout<'tcx>;
+
+        fn layout_of(&self, ty: Ty<'tcx>) -> TyLayout<'tcx> {
+            self.0.layout_of(ParamEnv::reveal_all().and(&ty))
+                .unwrap_or_else(|e| if let layout::LayoutError::SizeOverflow(_) = e {
+                    self.0.sess.fatal(&e.to_string())
+                } else {
+                    bug!("failed to get layout for `{}`: {}", ty, e)
+                })
+        }
+    }
+
+    let fn_ty = if is_vtable_fn {
+        FnType::new_vtable(&Context(tcx), sig, extra_args)
+    } else {
+        FnType::new(&Context(tcx), sig, extra_args)
+    };
+    println!("{:#?}", fn_ty);
     let abi = match sig.abi {
         Abi::System => {
             if tcx.sess.target.target.options.is_like_windows {

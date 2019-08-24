@@ -31,6 +31,10 @@ $RUSTC example/mini_core.rs --crate-name mini_core --crate-type lib,dylib
 echo "[BUILD] example"
 $RUSTC example/example.rs --crate-type lib
 
+cat target/out/clif/example___ZN7example18call_register_name17h*.unopt.clif
+
+exit 1
+
 JIT_ARGS="abc bcd" jit mini_core_hello_world example/mini_core_hello_world.rs
 
 echo "[AOT] mini_core_hello_world"
