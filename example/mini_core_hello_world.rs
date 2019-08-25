@@ -1,8 +1,8 @@
 // Adapted from https://github.com/sunfishcode/mir2cranelift/blob/master/rust-examples/nocore-hello-world.rs
 
-#![feature(no_core, unboxed_closures, start, lang_items, box_syntax, slice_patterns, never_type, linkage)]
+#![feature(no_core, unboxed_closures, start, lang_items, box_syntax, slice_patterns, never_type, linkage, thread_local)]
 #![no_core]
-#![allow(dead_code)]
+#![allow(dead_code, non_camel_case_types)]
 
 extern crate mini_core;
 
@@ -78,13 +78,7 @@ fn start<T: Termination + 'static>(
     argc: isize,
     argv: *const *const u8,
 ) -> isize {
-    if argc == 3 {
-        unsafe { puts(*argv); }
-        unsafe { puts(*((argv as usize + intrinsics::size_of::<*const u8>()) as *const *const u8)); }
-        unsafe { puts(*((argv as usize + 2 * intrinsics::size_of::<*const u8>()) as *const *const u8)); }
-    }
-
-    main().report();
+    main();//.report();
     0
 }
 
@@ -125,143 +119,68 @@ fn call_return_u128_pair() {
     return_u128_pair();
 }
 
+#[repr(C)]
+enum c_void {
+    _1,
+    _2,
+}
+
+type c_int = i32;
+type c_ulong = u64;
+
+type pthread_t = c_ulong;
+
+#[repr(C)]
+struct pthread_attr_t {
+    __size: [u64; 7],
+}
+
+#[link(name = "pthread")]
+extern "C" {
+    fn pthread_attr_init(attr: *mut pthread_attr_t) -> c_int;
+
+    fn pthread_create(
+        native: *mut pthread_t,
+        attr: *const pthread_attr_t,
+        f: extern "C" fn(_: *mut c_void) -> *mut c_void,
+        value: *mut c_void
+    ) -> c_int;
+
+    fn pthread_join(
+        native: pthread_t,
+        value: *mut *mut c_void
+    ) -> c_int;
+}
+
+#[thread_local]
+static mut TLS: u8 = 42;
+
+extern "C" fn mutate_tls(_: *mut c_void) -> *mut c_void {
+    unsafe { TLS = 0; }
+    0 as *mut c_void
+}
+
 fn main() {
-    take_unique(Unique {
-        pointer: 0 as *const (),
-        _marker: PhantomData,
-    });
-    take_f32(0.1);
-
-    call_return_u128_pair();
-
-    let slice = &[0, 1] as &[i32];
-    let slice_ptr = slice as *const [i32] as *const i32;
-
-    // FIXME On macOS statics and promoted constants have the wrong alignment. This causes this
-    // assertion to fail.
-    if cfg!(not(target_os = "macos")) {
-        assert_eq!(slice_ptr as usize % 4, 0);
-    }
-
-    //return;
-
     unsafe {
-        printf("Hello %s\n\0" as *const str as *const i8, "printf\0" as *const str as *const i8);
+        let mut attr: pthread_attr_t = intrinsics::init();
+        let mut thread: pthread_t = 0;
 
-        let hello: &[u8] = b"Hello\0" as &[u8; 6];
-        let ptr: *const u8 = hello as *const [u8] as *const u8;
-        puts(ptr);
-
-        let world: Box<&str> = box "World!\0";
-        puts(*world as *const str as *const u8);
-        world as Box<dyn SomeTrait>;
-
-        assert_eq!(intrinsics::bitreverse(0b10101000u8), 0b00010101u8);
-
-        assert_eq!(intrinsics::bswap(0xabu8), 0xabu8);
-        assert_eq!(intrinsics::bswap(0xddccu16), 0xccddu16);
-        assert_eq!(intrinsics::bswap(0xffee_ddccu32), 0xccdd_eeffu32);
-        assert_eq!(intrinsics::bswap(0x1234_5678_ffee_ddccu64), 0xccdd_eeff_7856_3412u64);
-
-        assert_eq!(intrinsics::size_of_val(hello) as u8, 6);
-
-        let chars = &['C', 'h', 'a', 'r', 's'];
-        let chars = chars as &[char];
-        assert_eq!(intrinsics::size_of_val(chars) as u8, 4 * 5);
-
-        let a: &dyn SomeTrait = &"abc\0";
-        a.object_safe();
-
-        assert_eq!(intrinsics::size_of_val(a) as u8, 16);
-        assert_eq!(intrinsics::size_of_val(&0u32) as u8, 4);
-
-        assert_eq!(intrinsics::min_align_of::<u16>() as u8, 2);
-        assert_eq!(intrinsics::min_align_of_val(&a) as u8, intrinsics::min_align_of::<&str>() as u8);
-
-        assert!(!intrinsics::needs_drop::<u8>());
-        assert!(intrinsics::needs_drop::<NoisyDrop>());
-
-        Unique {
-            pointer: 0 as *const &str,
-            _marker: PhantomData,
-        } as Unique<dyn SomeTrait>;
-
-        struct MyDst<T: ?Sized>(T);
-
-        intrinsics::size_of_val(&MyDst([0u8; 4]) as &MyDst<[u8]>);
-
-        struct Foo {
-            x: u8,
-            y: !,
+        if pthread_attr_init(&mut attr) != 0 {
+            pthread_err();
         }
 
-        unsafe fn zeroed<T>() -> T {
-            intrinsics::init::<T>()
+        if pthread_create(&mut thread, &attr, mutate_tls, 0 as *mut c_void) != 0 {
+            pthread_err();
         }
 
-        unsafe fn uninitialized<T>() -> T {
-            MaybeUninit { uninit: () }.value
-        }
+        let mut res = 0 as *mut c_void;
+        pthread_join(thread, &mut res);
 
-        zeroed::<(u8, u8)>();
-        #[allow(unreachable_code)]
-        {
-            if false {
-                zeroed::<!>();
-                zeroed::<Foo>();
-                uninitialized::<Foo>();
-            }
-        }
+        // TLS of main thread must not have been changed by the other thread.
+        assert_eq!(TLS, 42);
     }
+}
 
-    let _ = box NoisyDrop {
-        text: "Boxed outer got dropped!\0",
-        inner: NoisyDropInner,
-    } as Box<dyn SomeTrait>;
-
-    const FUNC_REF: Option<fn()> = Some(main);
-    match FUNC_REF {
-        Some(_) => {},
-        None => assert!(false),
-    }
-
-    match Ordering::Less {
-        Ordering::Less => {},
-        _ => assert!(false),
-    }
-
-    [NoisyDropInner, NoisyDropInner];
-
-    let x = &[0u32, 42u32] as &[u32];
-    match x {
-        [] => assert_eq!(0u32, 1),
-        [_, ref y @ ..] => assert_eq!(&x[1] as *const u32 as usize, &y[0] as *const u32 as usize),
-    }
-
-    assert_eq!(((|()| 42u8) as fn(()) -> u8)(()), 42);
-
-    extern {
-        #[linkage = "weak"]
-        static ABC: *const u8;
-    }
-
-    {
-        extern {
-            #[linkage = "weak"]
-            static ABC: *const u8;
-        }
-    }
-
-    unsafe { assert_eq!(ABC as usize, 0); }
-
-    &mut (|| Some(0 as *const ())) as &mut dyn FnMut() -> Option<*const ()>;
-
-    let f = 1000.0;
-    assert_eq!(f as u8, 255);
-    let f2 = -1000.0;
-    assert_eq!(f2 as i8, -128);
-    assert_eq!(f2 as u8, 0);
-
-    static ANOTHER_STATIC: &u8 = &A_STATIC;
-    assert_eq!(*ANOTHER_STATIC, 42);
+fn pthread_err() {
+    assert_eq!(0, 1);
 }
