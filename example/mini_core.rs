@@ -1,6 +1,7 @@
 #![feature(
     no_core, lang_items, intrinsics, unboxed_closures, type_ascription, extern_types,
-    untagged_unions, decl_macro, rustc_attrs
+    untagged_unions, decl_macro, rustc_attrs, associated_type_bounds, optin_builtin_traits,
+    arbitrary_self_types,
 )]
 #![no_core]
 #![allow(dead_code)]
@@ -414,6 +415,11 @@ pub trait Deref {
     fn deref(&self) -> &Self::Target;
 }
 
+#[lang = "deref_mut"]
+pub trait DerefMut: Deref {
+    fn deref_mut(&mut self) -> &mut Self::Target;
+}
+
 #[lang = "owned_box"]
 pub struct Box<T: ?Sized>(*mut T);
 
@@ -422,6 +428,29 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Box<U>> for Box<T> {}
 impl<T: ?Sized> Drop for Box<T> {
     fn drop(&mut self) {
         // drop is currently performed by compiler.
+    }
+}
+
+impl<'a, T: ?Sized> Deref for &'a T {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &*self
+    }
+}
+
+
+impl<'a, T: ?Sized> Deref for &'a mut T {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &*self
+    }
+}
+
+impl<'a, T: ?Sized> DerefMut for &'a mut T {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self
     }
 }
 
@@ -531,3 +560,100 @@ pub macro line() { /* compiler built-in */ }
 pub macro cfg() { /* compiler built-in */ }
 
 pub static A_STATIC: u8 = 42;
+
+#[lang = "pin"]
+#[repr(transparent)]
+pub struct Pin<P> {
+    pointer: P,
+}
+
+impl<P: Deref> Pin<P> {
+    pub unsafe fn new_unchecked(pointer: P) -> Pin<P> {
+        Pin { pointer }
+    }
+
+    pub fn as_ref(self: &Pin<P>) -> Pin<&P::Target> {
+        unsafe { Pin::new_unchecked(&*self.pointer) }
+    }
+}
+
+impl<P: DerefMut> Pin<P> {
+    pub fn as_mut(self: &mut Pin<P>) -> Pin<&mut P::Target> {
+        unsafe { Pin::new_unchecked(&mut *self.pointer) }
+    }
+}
+
+impl<'a, T: ?Sized> Pin<&'a T> {
+    pub unsafe fn map_unchecked<U, F>(self: Pin<&'a T>, func: F) -> Pin<&'a U> where
+        F: FnOnce(&T) -> &U,
+    {
+        let pointer = &*self.pointer;
+        let new_pointer = func(pointer);
+        Pin::new_unchecked(new_pointer)
+    }
+
+    #[inline(always)]
+    pub fn get_ref(self: Pin<&'a T>) -> &'a T {
+        self.pointer
+    }
+}
+
+impl<'a, T: ?Sized> Pin<&'a mut T> {
+    #[inline(always)]
+    pub fn into_ref(self: Pin<&'a mut T>) -> Pin<&'a T> {
+        Pin { pointer: self.pointer }
+    }
+
+    #[inline(always)]
+    pub fn get_mut(self: Pin<&'a mut T>) -> &'a mut T
+        where T: Unpin,
+    {
+        self.pointer
+    }
+}
+
+#[lang = "unpin"]
+pub auto trait Unpin {}
+
+impl<'a, T: ?Sized + 'a> Unpin for &'a T {}
+
+impl<'a, T: ?Sized + 'a> Unpin for &'a mut T {}
+
+impl<P: Deref> Deref for Pin<P> {
+    type Target = P::Target;
+    fn deref(&self) -> &P::Target {
+        Pin::get_ref(Pin::as_ref(self))
+    }
+}
+
+impl<P: DerefMut<Target: Unpin>> DerefMut for Pin<P> {
+    fn deref_mut(&mut self) -> &mut P::Target {
+        Pin::get_mut(Pin::as_mut(self))
+    }
+}
+
+impl<P: Receiver> Receiver for Pin<P> {}
+
+impl<P, U> CoerceUnsized<Pin<U>> for Pin<P>
+where
+    P: CoerceUnsized<U>,
+{}
+
+impl<P, U> DispatchFromDyn<Pin<U>> for Pin<P>
+where
+    P: DispatchFromDyn<U>,
+{}
+
+#[lang = "generator_state"]
+pub enum GeneratorState<Y, R> {
+    Yielded(Y),
+    Complete(R),
+}
+
+#[lang = "generator"]
+pub trait Generator {
+    type Yield;
+    type Return;
+
+    fn resume(self: Pin<&mut Self>) -> GeneratorState<Self::Yield, Self::Return>;
+}
