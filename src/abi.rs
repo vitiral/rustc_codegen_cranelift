@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use rustc::ty::layout::{self, FloatTy, FnTypeExt, Integer, Primitive, Scalar};
-use rustc_target::abi::call::{FnType, PassMode as TargetPassMode, IgnoreMode};
+use rustc_target::abi::call::{Conv, FnType, PassMode as TargetPassMode, IgnoreMode};
 use rustc_target::abi::{Variants, VariantIdx};
 use rustc_target::spec::abi::Abi;
 
@@ -199,33 +199,21 @@ fn clif_sig_from_fn_sig<'tcx>(tcx: TyCtxt<'tcx>, sig: FnSig<'tcx>, is_vtable_fn:
         FnType::new(&Context(tcx), sig, extra_args)
     };
     println!("{:#?}", fn_ty);
-    let abi = match sig.abi {
-        Abi::System => {
-            if tcx.sess.target.target.options.is_like_windows {
-                unimplemented!()
-            } else {
-                Abi::C
-            }
-        }
-        abi => abi,
-    };
-    let (call_conv, inputs, output): (CallConv, Vec<Ty>, Ty) = match abi {
-        Abi::Rust => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
-        Abi::C => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
-        Abi::RustCall => {
-            assert_eq!(sig.inputs().len(), 2);
-            let extra_args = match sig.inputs().last().unwrap().sty {
-                ty::Tuple(ref tupled_arguments) => tupled_arguments,
-                _ => bug!("argument to function with \"rust-call\" ABI is not a tuple"),
-            };
-            let mut inputs: Vec<Ty> = vec![sig.inputs()[0]];
-            inputs.extend(extra_args.types());
-            (CallConv::SystemV, inputs, sig.output())
-        }
-        Abi::System => unreachable!(),
-        Abi::RustIntrinsic => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
+    let (call_conv, inputs, output): (CallConv, Vec<Ty>, Ty) = match fn_ty.conv {
+        Conv::C => (CallConv::SystemV, sig.inputs().to_vec(), sig.output()),
         _ => unimplemented!("unsupported abi {:?}", sig.abi),
     };
+
+    let inputs = fn_ty.args.into_iter().map(|arg_ty| {
+        match arg_ty.mode {
+            TargetPassMode::Ignore(_) => PassMode::NoPass,
+            TargetPassMode::Direct(arg_attrs) => {
+                match arg_ty.abi {
+
+                }
+            }
+        }
+    }).collect::<Vec<_>>();
 
     let inputs = inputs
         .into_iter()

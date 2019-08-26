@@ -31,7 +31,7 @@ $RUSTC example/mini_core.rs --crate-name mini_core --crate-type lib,dylib
 echo "[BUILD] example"
 $RUSTC example/example.rs --crate-type lib
 
-cat target/out/clif/example___ZN7example18call_register_name17h*.unopt.clif
+cat target/out/clif/example__*.unopt.clif
 
 exit 1
 
