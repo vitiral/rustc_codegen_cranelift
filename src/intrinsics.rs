@@ -22,10 +22,10 @@ macro intrinsic_arg {
         $arg
     },
     (c $fx:expr, $arg:ident) => {
-        trans_operand($fx, $arg)
+        trans_operand_borrow($fx, $arg)
     },
     (v $fx:expr, $arg:ident) => {
-        trans_operand($fx, $arg).load_scalar($fx)
+        trans_operand_borrow($fx, $arg).load_scalar($fx)
     }
 }
 
@@ -80,7 +80,7 @@ macro_rules! call_intrinsic_match {
                     assert!($substs.is_noop());
                     if let [$(ref $arg),*] = *$args {
                         let ($($arg,)*) = (
-                            $(trans_operand($fx, $arg),)*
+                            $(trans_operand_borrow($fx, $arg),)*
                         );
                         let res = $fx.easy_call(stringify!($func), &[$($arg),*], $fx.tcx.types.$ty);
                         $ret.write_cvalue($fx, res);

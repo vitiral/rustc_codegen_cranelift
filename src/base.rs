@@ -155,7 +155,7 @@ fn codegen_fn_content(fx: &mut FunctionCx<'_, '_, impl Backend>) {
                 target,
                 cleanup: _,
             } => {
-                let cond = trans_operand(fx, cond).load_scalar(fx);
+                let cond = trans_operand_borrow(fx, cond).load_scalar(fx);
                 // TODO HACK brz/brnz for i8/i16 is not yet implemented
                 let cond = fx.bcx.ins().uextend(types::I32, cond);
                 let target = fx.get_ebb(*target);
@@ -173,7 +173,7 @@ fn codegen_fn_content(fx: &mut FunctionCx<'_, '_, impl Backend>) {
                 values,
                 targets,
             } => {
-                let discr = trans_operand(fx, discr).load_scalar(fx);
+                let discr = trans_operand_borrow(fx, discr).load_scalar(fx);
                 let mut switch = ::cranelift::frontend::Switch::new();
                 for (i, value) in values.iter().enumerate() {
                     let ebb = fx.get_ebb(targets[i]);
@@ -253,7 +253,7 @@ fn trans_stmt<'tcx>(
             let dest_layout = lval.layout();
             match &**rval {
                 Rvalue::Use(operand) => {
-                    let val = trans_operand(fx, operand);
+                    let val = trans_operand_borrow(fx, operand);
                     lval.write_cvalue(fx, val);
                 }
                 Rvalue::Ref(_, _, place) => {
@@ -261,15 +261,15 @@ fn trans_stmt<'tcx>(
                     place.write_place_ref(fx, lval);
                 }
                 Rvalue::BinaryOp(bin_op, lhs, rhs) => {
-                    let lhs = trans_operand(fx, lhs);
-                    let rhs = trans_operand(fx, rhs);
+                    let lhs = trans_operand_borrow(fx, lhs);
+                    let rhs = trans_operand_borrow(fx, rhs);
 
                     let res = crate::num::codegen_binop(fx, *bin_op, lhs, rhs);
                     lval.write_cvalue(fx, res);
                 }
                 Rvalue::CheckedBinaryOp(bin_op, lhs, rhs) => {
-                    let lhs = trans_operand(fx, lhs);
-                    let rhs = trans_operand(fx, rhs);
+                    let lhs = trans_operand_borrow(fx, lhs);
+                    let rhs = trans_operand_borrow(fx, rhs);
 
                     let res = if !fx.tcx.sess.overflow_checks() {
                         let val = crate::num::trans_int_binop(fx, *bin_op, lhs, rhs).load_scalar(fx);
@@ -282,7 +282,7 @@ fn trans_stmt<'tcx>(
                     lval.write_cvalue(fx, res);
                 }
                 Rvalue::UnaryOp(un_op, operand) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
                     let layout = operand.layout();
                     let val = operand.load_scalar(fx);
                     let res = match un_op {
@@ -335,12 +335,12 @@ fn trans_stmt<'tcx>(
                 }
                 Rvalue::Cast(CastKind::Pointer(PointerCast::UnsafeFnPointer), operand, ty)
                 | Rvalue::Cast(CastKind::Pointer(PointerCast::MutToConstPointer), operand, ty) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
                     let layout = fx.layout_of(ty);
                     lval.write_cvalue(fx, operand.unchecked_cast_to(layout));
                 }
                 Rvalue::Cast(CastKind::Misc, operand, to_ty) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
                     let from_ty = operand.layout().ty;
 
                     fn is_fat_ptr<'tcx>(fx: &FunctionCx<'_, 'tcx, impl Backend>, ty: Ty<'tcx>) -> bool {
@@ -378,7 +378,7 @@ fn trans_stmt<'tcx>(
                     }
                 }
                 Rvalue::Cast(CastKind::Pointer(PointerCast::ClosureFnPointer(_)), operand, _ty) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
                     match operand.layout().ty.sty {
                         ty::Closure(def_id, substs) => {
                             let instance = Instance::resolve_closure(
@@ -397,7 +397,7 @@ fn trans_stmt<'tcx>(
                     }
                 }
                 Rvalue::Cast(CastKind::Pointer(PointerCast::Unsize), operand, _ty) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
                     operand.unsize_value(fx, lval);
                 }
                 Rvalue::Discriminant(place) => {
@@ -407,7 +407,8 @@ fn trans_stmt<'tcx>(
                     lval.write_cvalue(fx, discr);
                 }
                 Rvalue::Repeat(operand, times) => {
-                    let operand = trans_operand(fx, operand);
+                    let operand = trans_operand_borrow(fx, operand);
+                    // FIXME codegen loop
                     for i in 0..*times {
                         let index = fx.bcx.ins().iconst(fx.pointer_type, i as i64);
                         let to = lval.place_index(fx, index);
@@ -459,7 +460,7 @@ fn trans_stmt<'tcx>(
                 Rvalue::Aggregate(kind, operands) => match **kind {
                     AggregateKind::Array(_ty) => {
                         for (i, operand) in operands.into_iter().enumerate() {
-                            let operand = trans_operand(fx, operand);
+                            let operand = trans_operand_borrow(fx, operand);
                             let index = fx.bcx.ins().iconst(fx.pointer_type, i as i64);
                             let to = lval.place_index(fx, index);
                             to.write_cvalue(fx, operand);
@@ -636,14 +637,14 @@ pub fn trans_place_projection<'tcx>(
     }
 }
 
-pub fn trans_operand<'tcx>(
+/// Use this when you will not write to the original place.
+pub fn trans_operand_borrow<'tcx>(
     fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
     operand: &Operand<'tcx>,
 ) -> CValue<'tcx> {
     match operand {
         Operand::Move(place) | Operand::Copy(place) => {
-            let cplace = trans_place(fx, place);
-            cplace.to_cvalue(fx)
+            trans_place(fx, place).to_cvalue(fx)
         }
         Operand::Constant(const_) => crate::constant::trans_constant(fx, const_),
     }

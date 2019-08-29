@@ -135,16 +135,16 @@ fn get_pass_mode<'tcx>(
 
 fn adjust_arg_for_abi<'tcx>(
     fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
-    arg: CValue<'tcx>,
+    arg: CPlace<'tcx>,
 ) -> EmptySinglePair<Value> {
     match get_pass_mode(fx.tcx, arg.layout()) {
         PassMode::NoPass => Empty,
-        PassMode::ByVal(_) => Single(arg.load_scalar(fx)),
+        PassMode::ByVal(_) => Single(arg.to_cvalue(fx).load_scalar(fx)),
         PassMode::ByValPair(_, _) => {
-            let (a, b) = arg.load_scalar_pair(fx);
+            let (a, b) = arg.to_cvalue(fx).load_scalar_pair(fx);
             Pair(a, b)
         }
-        PassMode::ByRef => Single(arg.force_stack(fx)),
+        PassMode::ByRef => Single(arg.to_addr(fx)),
     }
 }
 
@@ -621,6 +621,39 @@ pub fn codegen_fn_prelude(
         .jump(*fx.ebb_map.get(&START_BLOCK).unwrap(), &[]);
 }
 
+
+/// Use this when you want to take ownership of the storage space of the operand.
+pub fn trans_operand_move<'tcx>(
+    fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
+    operand: &Operand<'tcx>,
+) -> CPlace<'tcx> {
+    match operand {
+        Operand::Move(place)  => {
+            trans_place(fx, place)
+        }
+        Operand::Copy(place) => {
+            let value = trans_place(fx, place).to_cvalue(fx);
+            if fx.clif_type(value.layout().ty).is_some() {
+                CValue::by_val(value.load_scalar(fx), value.layout())
+            } else {
+                let new_place = CPlace::new_stack_slot(fx, value.layout().ty);
+                new_place.write_cvalue(fx, value);
+                new_place
+            }
+        }
+        Operand::Constant(const_) => {
+            let value = crate::constant::trans_constant(fx, const_).to_cvalue(fx);
+            if fx.clif_type(value.layout().ty).is_some() {
+                CValue::by_val(value.load_scalar(fx), value.layout())
+            } else {
+                let new_place = CPlace::new_stack_slot(fx, value.layout().ty);
+                new_place.write_cvalue(fx, value);
+                new_place
+            }
+        }
+    }
+}
+
 pub fn codegen_terminator_call<'tcx>(
     fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
     func: &Operand<'tcx>,
@@ -662,8 +695,8 @@ pub fn codegen_terminator_call<'tcx>(
     // Unpack arguments tuple for closures
     let args = if sig.abi == Abi::RustCall {
         assert_eq!(args.len(), 2, "rust-call abi requires two arguments");
-        let self_arg = trans_operand(fx, &args[0]);
-        let pack_arg = trans_operand(fx, &args[1]);
+        let self_arg = trans_operand_move(fx, &args[0]);
+        let pack_arg = trans_operand_move(fx, &args[1]);
         let mut args = Vec::new();
         args.push(self_arg);
         match pack_arg.layout().ty.sty {
@@ -677,7 +710,7 @@ pub fn codegen_terminator_call<'tcx>(
         args
     } else {
         args.into_iter()
-            .map(|arg| trans_operand(fx, arg))
+            .map(|arg| trans_operand_move(fx, arg))
             .collect::<Vec<_>>()
     };
 
@@ -701,7 +734,7 @@ fn codegen_call_inner<'tcx>(
     fx: &mut FunctionCx<'_, 'tcx, impl Backend>,
     func: Option<&Operand<'tcx>>,
     fn_ty: Ty<'tcx>,
-    args: Vec<CValue<'tcx>>,
+    args: Vec<CPlace<'tcx>>,
     ret_place: Option<CPlace<'tcx>>,
 ) {
     let fn_sig = fx.tcx.normalize_erasing_late_bound_regions(ParamEnv::reveal_all(), &fn_ty.fn_sig(fx.tcx));
@@ -742,7 +775,7 @@ fn codegen_call_inner<'tcx>(
                     format!("virtual call; self arg pass mode: {:?}", get_pass_mode(fx.tcx, args[0].layout())),
                 );
             }
-            let (ptr, method) = crate::vtable::get_ptr_and_method_ref(fx, args[0], idx);
+            let (ptr, method) = crate::vtable::get_ptr_and_method_ref(fx, args[0].to_cvalue(fx), idx);
             (Some(method), Single(ptr), true)
         }
 
@@ -756,7 +789,7 @@ fn codegen_call_inner<'tcx>(
                 let nop_inst = fx.bcx.ins().nop();
                 fx.add_comment(nop_inst, "indirect call");
             }
-            let func = trans_operand(fx, func.expect("indirect call without func Operand"))
+            let func = trans_operand_borrow(fx, func.expect("indirect call without func Operand"))
                 .load_scalar(fx);
             (
                 Some(func),
