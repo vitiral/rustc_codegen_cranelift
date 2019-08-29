@@ -51,7 +51,14 @@ impl<'tcx> CValue<'tcx> {
         self.1
     }
 
-    pub fn force_stack<'a>(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> Value {
+    pub fn try_get_addr(self) -> Option<Value> {
+        match self.0 {
+            CValueInner::ByRef(value) => Some(value),
+            _ => None
+        }
+    }
+
+    pub fn force_stack(self, fx: &mut FunctionCx<'_, 'tcx, impl Backend>) -> Value {
         let layout = self.1;
         match self.0 {
             CValueInner::ByRef(value) => value,

@@ -11,4 +11,4 @@ popd >/dev/null
 cmd=$1
 shift
 
-cargo $cmd --target $TARGET_TRIPLE $@
+RUSTFLAGS="-Zmir-opt-level=2 $RUSTFLAGS" cargo $cmd --target $TARGET_TRIPLE $@

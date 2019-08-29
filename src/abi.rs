@@ -584,15 +584,32 @@ pub fn codegen_fn_prelude(
             .unwrap()
             .contains(crate::analyze::Flags::NOT_SSA);
 
-        let place = local_place(fx, local, layout, is_ssa);
-
         match arg_kind {
             ArgKind::Normal(param) => {
                 if let Some(param) = param {
-                    place.write_cvalue(fx, param);
+                    if let Some(addr) = param.try_get_addr() {
+                        let place = CPlace::for_addr(addr, param.layout());
+                        let prev_place = fx.local_map.insert(local, place);
+                        debug_assert!(prev_place.is_none());
+
+                        #[cfg(debug_assertions)]
+                        {
+                            fx.add_global_comment(format!(
+                                "arg {:?} reuse_addr={}",
+                                local,
+                                addr,
+                            ));
+                        }
+                    } else {
+                        let place = local_place(fx, local, layout, is_ssa);
+                        place.write_cvalue(fx, param);
+                    }
+                } else {
+                    local_place(fx, local, layout, is_ssa);
                 }
             }
             ArgKind::Spread(params) => {
+                let place = local_place(fx, local, layout, is_ssa);
                 for (i, param) in params.into_iter().enumerate() {
                     if let Some(param) = param {
                         place
