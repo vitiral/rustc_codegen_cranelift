@@ -67,7 +67,7 @@ rustc = "$HOME/.rustup/toolchains/nightly-$TARGET_TRIPLE/bin/rustc"
 EOF
 
 #rm -r src/test/ui/{asm-*,abi*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,test*,*lto*.rs} || true
-#for test in $(rg --files-with-matches "ignore-emscripten|ignore-wasm32" src/test/ui); do
+#for test in $(rg --files-with-matches "ignore-emscripten|ignore-wasm32|asm!" src/test/ui); do
 #   rm $test
 #done
 #rm src/test/ui/confuse-field-and-method/issue-2392.rs || true # Borrowck error difference
