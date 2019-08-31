@@ -18,5 +18,6 @@ git checkout -- .
 git checkout 804a7a21b9e673a482797aa289a18ed480e4d813
 
 # build with cg_llvm for perf comparison
+cargo build
 mv target/debug/main raytracer_cg_llvm
 popd
