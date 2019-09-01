@@ -49,7 +49,7 @@ $RUSTC example/std_example.rs --crate-type bin
 
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
-#git checkout -- .
+#git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') .
 #git pull
 export RUSTFLAGS=
 
@@ -66,19 +66,20 @@ local-rebuild = true
 rustc = "$HOME/.rustup/toolchains/nightly-$TARGET_TRIPLE/bin/rustc"
 EOF
 
-#rm -r src/test/ui/{asm-*,abi*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,test*,*lto*.rs} || true
-for test in $(rg --files-with-matches "asm!|catch_unwind|should_panic|thread" src/test/ui); do
+git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') src/test
+rm -r src/test/ui/{asm-*,abi*,extern/,panic-runtime/,panics/,unsized-locals/,proc-macro/,threads-sendsync/,thinlto/,simd*,borrowck/,test*,*lto*.rs} || true
+for test in $(rg --files-with-matches "asm!|catch_unwind|should_panic|thread|lto" src/test/ui); do
   rm $test
 done
-#rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
-#rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
-#rm src/test/ui/type_length_limit.rs || true
-#rm src/test/ui/huge-{array,array-simple-64,enum,struct}.rs || true # cg_clif doesn't provide a span for type is too big for arch
-#rm src/test/ui/issues/issue-15919-64.rs || true # ^
-#rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
-#rm src/test/ui/linkage-attr/linkage3.rs || true # Different error
-#rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
-#rm src/test/ui/suggestions/issue-61963.rs || true # ^
+rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
+rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
+rm src/test/ui/type_length_limit.rs || true
+rm src/test/ui/huge-{array,array-simple-64,enum,struct}.rs || true # cg_clif doesn't provide a span for type is too big for arch
+rm src/test/ui/issues/issue-15919-64.rs || true # ^
+rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
+rm src/test/ui/linkage-attr/linkage3.rs || true # Different error
+rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
+rm src/test/ui/suggestions/issue-61963.rs || true # ^
 
 RUSTC_ARGS="-Zcodegen-backend="$(pwd)"/../target/"$CHANNEL"/librustc_codegen_cranelift."$dylib_ext" --sysroot "$(pwd)"/../build_sysroot/sysroot -Cpanic=abort"
 
