@@ -49,8 +49,8 @@ $RUSTC example/std_example.rs --crate-type bin
 
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
+#git fetch
 #git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') .
-#git pull
 export RUSTFLAGS=
 
 #git apply ../rust_lang.patch
