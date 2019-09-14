@@ -50,7 +50,7 @@ $RUSTC example/std_example.rs --crate-type bin
 git clone https://github.com/rust-lang/rust.git --depth=1 || true
 cd rust
 #git fetch
-#git checkout $(rustc -V | cut -d' ' -f3 | tr -d '(') .
+#git reset --hard $(rustc -V | cut -d' ' -f3 | tr -d '(')
 export RUSTFLAGS=
 
 #git apply ../rust_lang.patch
@@ -74,10 +74,7 @@ done
 rm src/test/ui/consts/const-size_of-cycle.rs || true # Error file path difference
 rm src/test/ui/impl-trait/impl-generic-mismatch.rs || true # ^
 rm src/test/ui/type_length_limit.rs || true
-rm src/test/ui/huge-{array,array-simple-64,enum,struct}.rs || true # cg_clif doesn't provide a span for type is too big for arch
-rm src/test/ui/issues/issue-15919-64.rs || true # ^
 rm src/test/ui/issues/issue-50993.rs || true # Target `thumbv7em-none-eabihf` is not supported
-rm src/test/ui/linkage-attr/linkage3.rs || true # Different error
 rm src/test/ui/macros/same-sequence-span.rs || true # Proc macro .rustc section not found?
 rm src/test/ui/suggestions/issue-61963.rs || true # ^
 
